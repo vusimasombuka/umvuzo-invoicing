@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Quotes | Umvuzo Media{% endblock %}
+
+{% block content %}
+<h2>Quotes</h2>
+{% if request.query_params.get("sent") %}
+<div style="background:#28a745;color:white;padding:10px;border-radius:6px;margin-bottom:15px;">
+Email sent successfully ✅
+</div>
+{% endif %}
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Quote #</th>
+                <th>Client</th>
+                <th>Items</th>
+                <th>Total (R)</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for quote in quotes %}
+            <tr>
+                <td>Q-{{ "%04d"|format(quote.quote_number) }}</td>
+                <td>{{ quote.client.name }}</td>
+                <td>{{ quote.items }}</td>
+                <td>R {{ "%.2f"|format(quote.total) }}</td>
+                <td>{{ quote.status }}</td>
+                <td>{{ quote.created_at.strftime("%Y-%m-%d") }}</td>
+                <td>
+                    <div class="actions">
+                        <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf">PDF</a>
+                        <a class="btn email" href="/quotes/{{ quote.id }}/email">Email</a>
+
+                        {% if quote.status == "Draft" %}
+                            <a class="btn sent" href="/quotes/{{ quote.id }}/sent">Mark Sent</a>
+                        {% endif %}
+                        {% if quote.status == "Sent" %}
+                            <a class="btn approve" href="/quotes/{{ quote.id }}/approved">Approve</a>
+                        {% endif %}
+                        {% if quote.status == "Approved" and not quote.converted %}
+                            <a class="btn convert" href="/quotes/{{ quote.id }}/convert">Convert</a>
+                        {% endif %}
+                        {% if quote.converted %}
+                            <span style="color:#666;font-size:12px;">Converted</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

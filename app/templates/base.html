@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Umvuzo Media{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        :root {
+            --brand-blue: #49bef5;
+            --bg-light: #f4f6f8;
+            --text-dark: #222;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        /* NAVBAR */
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--brand-blue);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+        }
+
+        .brand img {
+            height: 32px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 6px 10px;
+            border-radius: 4px;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* CONTENT */
+        .container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        /* TABLES */
+        .table-wrapper {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #f1f1f1;
+            font-weight: bold;
+        }
+
+        /* BUTTONS */
+        .actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 6px 10px;
+            font-size: 12px;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        
+.create-btn:hover {
+    background: #e6f7ff;
+}
+
+
+        .pdf { background: #0a6cff; }
+        .email { background: #28a745; }
+        .sent { background: #ffc107; color: #000; }
+        .approve { background: #17a2b8; }
+        .convert { background: #6f42c1; }
+        .mark { background: #dc3545; }
+
+        /* MOBILE */
+        @media (max-width: 768px) {
+            .nav-links {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .container {
+                padding: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">
+        <img src="/static/logo.png"
+     alt="Umvuzo Media"
+     style="height:105px; width:auto; margin-top:-10px; margin-bottom:-10px;">
+
+
+        Umvuzo Media
+    </div>
+
+    <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/quotes-page">Quotes</a>
+    <a href="/invoices-page">Invoices</a>
+    <a href="/clients-page">Clients</a>
+    <a href="/clients/create" class="create-btn">+ New Client</a>
+    <a href="/quotes/create" class="create-btn">+ New Quote</a>
+    <a href="/logout">Logout</a>
+</div>
+
+</div>
+
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

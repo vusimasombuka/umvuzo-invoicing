@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+sqlalchemy
+jinja2
+weasyprint
+python-multipart
+psycopg2-binary

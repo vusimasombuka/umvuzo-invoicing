@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Create Client</h2>
+
+<form method="post">
+    <input name="name" placeholder="Client Name" required><br><br>
+    <input name="email" placeholder="Email"><br><br>
+    <input name="phone" placeholder="Phone"><br><br>
+    <button type="submit">Save Client</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Client History</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; background: #f4f6f8; padding: 20px; }
+        h2 { margin-bottom: 10px; }
+        h3 { margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; }
+        th { background: #f1f1f1; }
+    </style>
+</head>
+<body>
+
+<h2>{{ client.name }}</h2>
+<p>{{ client.email }} | {{ client.phone }}</p>
+
+<h3>Quotes</h3>
+<table>
+<tr><th>Quote #</th><th>Total</th><th>Status</th></tr>
+{% for q in quotes %}
+<tr>
+    <td>Q-{{ "%04d"|format(q.quote_number) }}</td>
+    <td>R {{ "%.2f"|format(q.total) }}</td>
+    <td>{{ q.status }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<h3>Invoices</h3>
+<table>
+<tr><th>Invoice #</th><th>Total</th><th>Status</th></tr>
+{% for i in invoices %}
+<tr>
+    <td>INV-{{ "%04d"|format(i.invoice_number) }}</td>
+    <td>R {{ "%.2f"|format(i.total) }}</td>
+    <td>{{ "Paid" if i.paid else "Unpaid" }}</td>
+</tr>
+{% endfor %}
+</table>
+
+</body>
+</html>

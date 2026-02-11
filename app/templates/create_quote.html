@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Create Quote</h2>
+
+<form method="post">
+
+    <!-- CLIENT SELECT -->
+    <label>Client</label><br>
+    <input list="clients_list" id="client_input" placeholder="Type client name..." required>
+
+    <datalist id="clients_list">
+        {% for client in clients %}
+            <option value="{{ client.name }}" data-id="{{ client.id }}"></option>
+        {% endfor %}
+    </datalist>
+
+    <input type="hidden" name="client_id" id="client_id">
+
+    <br><br>
+
+    <!-- ITEMS TABLE -->
+    <h3>Items</h3>
+
+    <table id="items-table" style="width:100%; border-collapse: collapse;">
+        <tr style="background:#49bef5; color:rgb(58, 57, 57);">
+            <th style="border:1px solid #ddd; padding:8px;">Description</th>
+            <th style="border:1px solid #ddd; padding:8px;">Unit Cost</th>
+            <th style="border:1px solid #ddd; padding:8px;">Quantity</th>
+            <th style="border:1px solid #ddd; padding:8px;">Amount</th>
+            <th style="border:1px solid #ddd; padding:8px;"></th>
+        </tr>
+    </table>
+
+    <br>
+    <button type="button" onclick="addRow()">+ Add Item</button>
+
+    <br><br>
+
+    <h3>Total: R <span id="grand-total">0.00</span></h3>
+
+    <!-- Hidden field to send JSON -->
+    <input type="hidden" name="items_data" id="items_data">
+
+    <br>
+
+    <button type="submit">Save Quote</button>
+
+</form>
+
+<script>
+// CLIENT SELECTION
+document.getElementById("client_input").addEventListener("input", function() {
+    let input = this.value;
+    let options = document.querySelectorAll("#clients_list option");
+    let hiddenInput = document.getElementById("client_id");
+
+    hiddenInput.value = "";
+
+    options.forEach(option => {
+        if (option.value === input) {
+            hiddenInput.value = option.getAttribute("data-id");
+        }
+    });
+});
+
+
+// ADD ROW FUNCTION
+function addRow() {
+    const table = document.getElementById("items-table");
+
+    const row = table.insertRow();
+
+    row.innerHTML = `
+        <td style="border:1px solid #ddd; padding:6px;">
+            <input type="text" class="desc" style="width:100%;" required>
+        </td>
+        <td style="border:1px solid #ddd; padding:6px;">
+            <input type="number" step="0.01" class="unit" style="width:100%;" oninput="calculate()" required>
+        </td>
+        <td style="border:1px solid #ddd; padding:6px;">
+            <input type="number" step="1" class="qty" style="width:100%;" oninput="calculate()" required>
+        </td>
+        <td style="border:1px solid #ddd; padding:6px;" class="amount">0.00</td>
+        <td style="border:1px solid #ddd; padding:6px;">
+            <button type="button" onclick="this.parentElement.parentElement.remove(); calculate();">X</button>
+        </td>
+    `;
+}
+
+
+// CALCULATE TOTAL
+function calculate() {
+    let rows = document.querySelectorAll("#items-table tr");
+    let total = 0;
+    let items = [];
+
+    rows.forEach((row, index) => {
+        if (index === 0) return;
+
+        let desc = row.querySelector(".desc").value;
+        let unit = parseFloat(row.querySelector(".unit").value) || 0;
+        let qty = parseFloat(row.querySelector(".qty").value) || 0;
+
+        let amount = unit * qty;
+        row.querySelector(".amount").innerText = amount.toFixed(2);
+
+        total += amount;
+
+        items.push({
+            description: desc,
+            unit_cost: unit,
+            quantity: qty
+        });
+    });
+
+    document.getElementById("grand-total").innerText = total.toFixed(2);
+    document.getElementById("items_data").value = JSON.stringify(items);
+}
+
+// Add first row automatically
+addRow();
+</script>
+
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Umvuzo Media{% endblock %}
+
+{% block content %}
+<h2>Dashboard</h2>
+
+<div class="grid">
+    <div class="card">
+        <h3>Total Quotes</h3>
+        <p>{{ total_quotes }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Approved Quotes</h3>
+        <p>{{ approved_quotes }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Converted Quotes</h3>
+        <p>{{ converted_quotes }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Total Invoices</h3>
+        <p>{{ total_invoices }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Paid Invoices</h3>
+        <p>{{ paid_invoices }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Unpaid Invoices</h3>
+        <p>{{ unpaid_invoices }}</p>
+    </div>
+</div>
+
+<style>
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+.card {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+.card h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+}
+.card p {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+</style>
+{% endblock %}

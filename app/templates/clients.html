@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Clients | Umvuzo Media{% endblock %}
+
+{% block content %}
+<h2>Clients</h2>
+
+<div class="table-wrapper">
+<table>
+<tr>
+    <th>Name</th>
+    <th>Email</th>
+    <th>Phone</th>
+    <th>Action</th>
+</tr>
+
+{% for client in clients %}
+<tr>
+    <td>{{ client.name }}</td>
+    <td>{{ client.email }}</td>
+    <td>{{ client.phone }}</td>
+    <td>
+        <a href="/clients/{{ client.id }}">View History</a>
+    </td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}
