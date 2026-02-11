@@ -449,3 +449,36 @@ def mark_sent(quote_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/quotes-page", status_code=302)
 
 
+from app.models import User
+from app.database import SessionLocal
+import os
+
+
+def create_default_admin():
+    db = SessionLocal()
+
+    # Check if any users exist
+    existing_user = db.query(User).first()
+
+    if not existing_user:
+        admin_username = os.getenv("ADMIN_USER")
+        admin_password = os.getenv("ADMIN_PASS")
+
+        if not admin_username or not admin_password:
+            print("ADMIN_USER or ADMIN_PASS not set.")
+            db.close()
+            return
+
+        admin = User(
+            username=admin_username,
+            password=admin_password
+        )
+
+        db.add(admin)
+        db.commit()
+        print("Default admin user created.")
+
+    db.close()
+
+
+create_default_admin()
