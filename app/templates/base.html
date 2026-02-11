@@ -141,19 +141,29 @@
                 padding: 14px;
             }
         }
+
+        .nav-logo {
+    background: rgba(255,255,255,0.15);
+    padding: 8px 14px;
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+}
+
+
+.nav-logo img {
+    height: 45px;
+    width: auto;
+    display: block;
+}
+
     </style>
 </head>
 <body>
 
-<div class="navbar">
-    <div class="brand">
-        <img src="/static/logo.png"
-     alt="Umvuzo Media"
-     style="height:105px; width:auto; margin-top:-10px; margin-bottom:-10px;">
+<div class="nav-logo">
+    <img src="/static/logo.png" alt="Umvuzo Media Logo">
+</div>
 
-
-        Umvuzo Media
-    </div>
 
     <div class="nav-links">
     <a href="/dashboard">Dashboard</a>
