@@ -30,10 +30,12 @@ from app.models import QuoteItem, InvoiceItem
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Umvuzo Media Invoicing System")
-
-app.add_middleware(SessionMiddleware, secret_key="super-secret-key")
+from fastapi.staticfiles import StaticFiles
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+app.add_middleware(SessionMiddleware, secret_key="super-secret-key")
 
 templates = Jinja2Templates(directory="app/templates")
 
