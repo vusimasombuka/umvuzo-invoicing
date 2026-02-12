@@ -344,30 +344,40 @@ def invoice_pdf(invoice_id: int, db: Session = Depends(get_db)):
 # INVOICE EMAIL
 # =========================
 @app.get("/invoices/{invoice_id}/email")
-def email_invoice(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+def email_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
-    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    invoice = db.get(Invoice, invoice_id)
     if not invoice:
-        request.session["flash"] = "Invoice not found."
-        return RedirectResponse("/invoices-page", status_code=303)
+        raise HTTPException(status_code=404, detail="Invoice not found")
 
-    try:
-        send_email(
-        invoice.client.email,
-        f"Invoice #{invoice.invoice_number}",
-        "Please find your invoice attached.",
-        f"invoice_{invoice.invoice_number}.pdf"
+    client = db.get(Client, invoice.client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    items = db.query(InvoiceItem).filter(
+        InvoiceItem.invoice_id == invoice.id
+    ).all()
+
+    filename = f"invoice_{invoice.id}.pdf"
+
+    generate_invoice_pdf(invoice, client, items, filename)
+
+    send_email(
+        to_email=client.email,
+        subject=f"Invoice INV-{invoice.invoice_number:04d}",
+        body=f"""
+Dear {client.name},
+
+Please find your invoice attached.
+
+
+Thank you for your business.
+""",
+        pdf_path=filename
     )
 
-        request.session["flash"] = "Invoice emailed successfully."
-
-    except Exception as e:
-        print("EMAIL ERROR:", e)
-        request.session["flash"] = f"Email failed: {str(e)}"
-
-
-
     return RedirectResponse("/invoices-page", status_code=303)
+
 
 
 
@@ -397,23 +407,42 @@ def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
 def email_quote(quote_id: int, request: Request, db: Session = Depends(get_db)):
 
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
+
     if not quote:
-        return RedirectResponse("/quotes")
+        return RedirectResponse("/quotes-page", status_code=status.HTTP_303_SEE_OTHER)
 
     try:
+        filename = f"quote_{quote.quote_number}.pdf"
+
+        # IMPORTANT — match your function signature
+        items = db.query(QuoteItem).filter(
+            QuoteItem.quote_id == quote.id
+        ).all()
+
+        generate_quote_pdf(
+            quote,
+            quote.client,
+            items,
+            filename
+        )
+
+
         send_email(
-            to=quote.client.email,
-            subject=f"Quote #{quote.quote_number}",
-            body="Please find your quote attached.",
-            attachment_path=f"quote_{quote.quote_number}.pdf"
+            quote.client.email,
+            f"Quote #{quote.quote_number}",
+            f"Dear {quote.client.name},\n\nPlease find your quote attached.\n\nTotal: R {quote.total:.2f}",
+            filename
         )
 
         request.session["flash"] = "Quote emailed successfully."
 
     except Exception as e:
-        request.session["flash"] = "Email failed. Please check email settings."
+        print("QUOTE EMAIL ERROR:", e)
+        request.session["flash"] = f"Email failed: {str(e)}"
 
-    return RedirectResponse("/quotes", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse("/quotes-page", status_code=status.HTTP_303_SEE_OTHER)
+
+
 
 
 

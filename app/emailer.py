@@ -28,11 +28,11 @@ def send_email(to_email: str, subject: str, body: str, pdf_path: str):
         )
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()   # 🔥 THIS IS THE KEY LINE
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
             server.login(EMAIL_USER, EMAIL_PASS)
             server.send_message(msg)
-            print("Email sent successfully!")
+
+        print("Email sent successfully!")
 
     except Exception as e:
         print("EMAIL ERROR:", e)
