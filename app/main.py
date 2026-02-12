@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +23,7 @@ from app.invoice_pdf import generate_invoice_pdf
 import json
 from app.models import QuoteItem, InvoiceItem
 from app.models import Service
+
 
 # -------------------------
 # APP SETUP
@@ -343,40 +344,31 @@ def invoice_pdf(invoice_id: int, db: Session = Depends(get_db)):
 # INVOICE EMAIL
 # =========================
 @app.get("/invoices/{invoice_id}/email")
-def email_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def email_invoice(invoice_id: int, request: Request, db: Session = Depends(get_db)):
 
-    invoice = db.get(Invoice, invoice_id)
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+        request.session["flash"] = "Invoice not found."
+        return RedirectResponse("/invoices-page", status_code=303)
 
-    client = db.get(Client, invoice.client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    items = db.query(InvoiceItem).filter(
-        InvoiceItem.invoice_id == invoice.id
-    ).all()
-
-    filename = f"invoice_{invoice.id}.pdf"
-
-    generate_invoice_pdf(invoice, client, items, filename)
-
-    send_email(
-        to_email=client.email,
-        subject=f"Invoice INV-{invoice.invoice_number:04d}",
-        body=f"""
-Dear {client.name},
-
-Please find your invoice attached.
-
-Total: R {invoice.total:.2f}
-
-Thank you for your business.
-""",
-        pdf_path=filename
+    try:
+        send_email(
+        invoice.client.email,
+        f"Invoice #{invoice.invoice_number}",
+        "Please find your invoice attached.",
+        f"invoice_{invoice.invoice_number}.pdf"
     )
 
+        request.session["flash"] = "Invoice emailed successfully."
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)
+        request.session["flash"] = f"Email failed: {str(e)}"
+
+
+
     return RedirectResponse("/invoices-page", status_code=303)
+
 
 
 
@@ -402,35 +394,26 @@ def quote_pdf(quote_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/quotes/{quote_id}/email")
-def email_quote(quote_id: int, db: Session = Depends(get_db)):
-    quote = db.get(Quote, quote_id)
+def email_quote(quote_id: int, request: Request, db: Session = Depends(get_db)):
+
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        return RedirectResponse("/quotes")
 
-    client = db.get(Client, quote.client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+    try:
+        send_email(
+            to=quote.client.email,
+            subject=f"Quote #{quote.quote_number}",
+            body="Please find your quote attached.",
+            attachment_path=f"quote_{quote.quote_number}.pdf"
+        )
 
-    filename = f"quote_{quote.id}.pdf"
-    generate_quote_pdf(quote, client, filename)
+        request.session["flash"] = "Quote emailed successfully."
 
-    send_email(
-    to_email=client.email,
-    subject=f"Quote Q-{quote.quote_number:04d}",
-    body=f"""
-Dear {client.name},
+    except Exception as e:
+        request.session["flash"] = "Email failed. Please check email settings."
 
-Please find your quote attached.
-
-Total: R {quote.total:.2f}
-
-Thank you for your business.
-""",
-    pdf_path=filename
-)
-
-
-    return RedirectResponse("/quotes-page", status_code=302)
+    return RedirectResponse("/quotes", status_code=status.HTTP_303_SEE_OTHER)
 
 
 

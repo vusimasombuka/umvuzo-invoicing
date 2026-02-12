@@ -164,8 +164,24 @@
 </div>
 
 <div class="container">
+
+    {% if request.session.get("flash") %}
+        <div style="
+            background:#28a745;
+            color:white;
+            padding:12px 16px;
+            margin-bottom:15px;
+            border-radius:6px;
+            font-weight:bold;
+        ">
+            {{ request.session.pop("flash") }}
+        </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
+
 </div>
+
 
 </body>
 </html>

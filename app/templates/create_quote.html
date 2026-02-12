@@ -70,42 +70,93 @@ document.getElementById("client_input").addEventListener("input", function() {
 // ADD ROW FUNCTION
 function addRow() {
     const table = document.getElementById("items-table");
-
     const row = table.insertRow();
 
-    row.innerHTML = `
-        <td style="border:1px solid #ddd; padding:6px;">
-            <input type="text" class="desc" style="width:100%;" required>
-        </td>
-        <td style="border:1px solid #ddd; padding:6px;">
-            <input type="number" step="0.01" class="unit" style="width:100%;" oninput="calculate()" required>
-        </td>
-        <td style="border:1px solid #ddd; padding:6px;">
-            <input type="number" step="1" class="qty" style="width:100%;" oninput="calculate()" required>
-        </td>
-        <td style="border:1px solid #ddd; padding:6px;" class="amount">0.00</td>
-        <td style="border:1px solid #ddd; padding:6px;">
-            <button type="button" onclick="this.parentElement.parentElement.remove(); calculate();">X</button>
-        </td>
+    // SERVICE
+    let serviceCell = row.insertCell(0);
+    serviceCell.innerHTML = `
+        <select class="service-select">
+            <option value="">Select Service</option>
+            {% for service in services %}
+            <option value="{{ service.name }}"
+                    data-price="{{ service.price }}"
+                    data-description="{{ service.description }}">
+                {{ service.name }} (R {{ "%.2f"|format(service.price) }})
+            </option>
+            {% endfor %}
+        </select>
     `;
+
+    // DESCRIPTION
+    let descCell = row.insertCell(1);
+    descCell.innerHTML = `<input type="text" name="description[]" class="description-input" required>`;
+
+    // UNIT COST
+    let costCell = row.insertCell(2);
+    costCell.innerHTML = `<input type="number" name="unit_cost[]" step="0.01" class="unit-cost" required>`;
+
+    // QUANTITY
+    let qtyCell = row.insertCell(3);
+    qtyCell.innerHTML = `<input type="number" name="quantity[]" value="1" min="1" class="quantity" required>`;
+
+    // AMOUNT
+    let amountCell = row.insertCell(4);
+    amountCell.innerHTML = `0.00`;
+    amountCell.classList.add("amount");
+
+    // DELETE BUTTON
+    let deleteCell = row.insertCell(5);
+    deleteCell.innerHTML = `<button type="button" onclick="removeRow(this)">X</button>`;
+
+    attachEvents(row);
 }
+
+document.addEventListener("change", function(e) {
+    if (e.target.classList.contains("service-select")) {
+
+        let selected = e.target.options[e.target.selectedIndex];
+        let row = e.target.closest("tr");
+
+        let price = selected.getAttribute("data-price");
+        let description = selected.getAttribute("data-description");
+
+        row.querySelector(".unit-cost").value = price || "";
+        row.querySelector(".description-input").value = description || "";
+
+        calculateRow(row);
+    }
+});
+
 
 
 // CALCULATE TOTAL
-function calculate() {
-    let rows = document.querySelectorAll("#items-table tr");
+function calculateRow(row) {
+    let unit = parseFloat(row.querySelector(".unit-cost").value) || 0;
+    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
+
+    let amount = unit * qty;
+    row.querySelector(".amount").innerText = amount.toFixed(2);
+
+    calculateTotal();
+}
+
+function calculateTotal() {
     let total = 0;
     let items = [];
 
-    rows.forEach((row, index) => {
+    document.querySelectorAll("#items-table tr").forEach((row, index) => {
         if (index === 0) return;
 
-        let desc = row.querySelector(".desc").value;
-        let unit = parseFloat(row.querySelector(".unit").value) || 0;
-        let qty = parseFloat(row.querySelector(".qty").value) || 0;
+        let descInput = row.querySelector(".description-input");
+        let unitInput = row.querySelector(".unit-cost");
+        let qtyInput = row.querySelector(".quantity");
 
+        if (!descInput) return;
+
+        let desc = descInput.value;
+        let unit = parseFloat(unitInput.value) || 0;
+        let qty = parseFloat(qtyInput.value) || 0;
         let amount = unit * qty;
-        row.querySelector(".amount").innerText = amount.toFixed(2);
 
         total += amount;
 
@@ -119,6 +170,23 @@ function calculate() {
     document.getElementById("grand-total").innerText = total.toFixed(2);
     document.getElementById("items_data").value = JSON.stringify(items);
 }
+
+function attachEvents(row) {
+    row.querySelector(".unit-cost").addEventListener("input", function() {
+        calculateRow(row);
+    });
+
+    row.querySelector(".quantity").addEventListener("input", function() {
+        calculateRow(row);
+    });
+}
+
+function removeRow(button) {
+    let row = button.closest("tr");
+    row.remove();
+    calculateTotal();
+}
+
 
 // Add first row automatically
 addRow();
