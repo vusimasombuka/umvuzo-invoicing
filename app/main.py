@@ -484,3 +484,51 @@ def create_default_admin():
 
 
 create_default_admin()
+
+
+from app.models import Service
+from app.database import SessionLocal
+
+
+def seed_services():
+    db = SessionLocal()
+
+    existing_service = db.query(Service).first()
+    if existing_service:
+        db.close()
+        return  # Services already seeded
+
+    services = [
+        # --- IT Support ---
+        {"name": "IT Consultation", "description": "General IT consultation and advisory", "price": 450.0, "category": "Consulting"},
+        {"name": "Remote Support", "description": "Remote troubleshooting and technical support", "price": 350.0, "category": "Support"},
+        {"name": "Onsite Support", "description": "Onsite technical assistance", "price": 650.0, "category": "Support"},
+        
+        # --- Networking ---
+        {"name": "Router Setup", "description": "Router installation and configuration", "price": 650.0, "category": "Networking"},
+        {"name": "Network Cabling", "description": "Structured cabling per point", "price": 300.0, "category": "Networking"},
+        
+        # --- Security ---
+        {"name": "CCTV Installation", "description": "CCTV camera installation per unit", "price": 1200.0, "category": "Security"},
+        {"name": "Access Control Setup", "description": "Access control system configuration", "price": 1800.0, "category": "Security"},
+        
+        # --- Cloud & Systems ---
+        {"name": "Microsoft 365 Setup", "description": "Email and Microsoft 365 configuration", "price": 950.0, "category": "Cloud"},
+        {"name": "Server Setup", "description": "Server installation and configuration", "price": 2500.0, "category": "Infrastructure"},
+    ]
+
+    for s in services:
+        service = Service(
+            name=s["name"],
+            description=s["description"],
+            price=s["price"],
+            category=s["category"]
+        )
+        db.add(service)
+
+    db.commit()
+    db.close()
+    print("Charge sheet seeded successfully.")
+
+
+seed_services()
