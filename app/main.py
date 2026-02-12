@@ -170,10 +170,17 @@ def quotes_page(request: Request):
 @app.get("/quotes/create", response_class=HTMLResponse)
 def create_quote_form(request: Request, db: Session = Depends(get_db)):
     clients = db.query(Client).all()
-    return templates.TemplateResponse("create_quote.html", {
+    services = db.query(Service).order_by(Service.name).all()
+
+    return templates.TemplateResponse(
+    "create_quote.html",
+    {
         "request": request,
-        "clients": clients
-    })
+        "clients": clients,
+        "services": services
+    }
+)
+
 
 
 
