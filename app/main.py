@@ -22,7 +22,7 @@ from app.pdf import generate_quote_pdf
 from app.invoice_pdf import generate_invoice_pdf
 import json
 from app.models import QuoteItem, InvoiceItem
-
+from app.models import Service
 
 # -------------------------
 # APP SETUP
@@ -486,10 +486,6 @@ def create_default_admin():
 create_default_admin()
 
 
-from app.models import Service
-from app.database import SessionLocal
-
-
 def seed_services():
     db = SessionLocal()
 
@@ -532,3 +528,22 @@ def seed_services():
 
 
 seed_services()
+
+
+from fastapi.responses import HTMLResponse
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory="app/templates")
+
+
+@app.get("/services", response_class=HTMLResponse)
+def view_services(request: Request, db: Session = Depends(get_db)):
+    services = db.query(Service).order_by(Service.category, Service.name).all()
+    return templates.TemplateResponse(
+        "services.html",
+        {
+            "request": request,
+            "services": services
+        }
+    )
