@@ -85,3 +85,13 @@ class InvoiceItem(Base):
     quantity = Column(Float, nullable=False)
 
     invoice = relationship("Invoice")
+
+
+class Service(Base):
+    __tablename__ = "services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)
+    description = Column(String)
+    price = Column(Float)
+    category = Column(String)
