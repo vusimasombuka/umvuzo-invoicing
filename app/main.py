@@ -22,7 +22,7 @@ from passlib.context import CryptContext
 import secrets
 from datetime import datetime, timedelta
 from app.models import PasswordResetToken
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 import re
 
 EMAIL_REGEX = r"^[^@]+@[^@]+\.[^@]+$"
