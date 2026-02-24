@@ -1,20 +1,18 @@
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
-from reportlab.platypus import KeepTogether
-from reportlab.lib.enums import TA_RIGHT
 import os
 
 
-def generate_invoice_pdf(invoice, client, items, filename):
+def generate_invoice_pdf(invoice, client, items, filename, client_prefix):
 
     doc = SimpleDocTemplate(filename, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
 
-    brand_blue = colors.HexColor("#f5ab49")
+    brand_color = colors.HexColor("#fdae54")
 
     # Logo
     logo_path = "app/static/logo.png"
@@ -24,42 +22,44 @@ def generate_invoice_pdf(invoice, client, items, filename):
 
     elements.append(Spacer(1, 0.2 * inch))
 
-
+    # Accent line
     accent_line = Table([[""]], colWidths=[6 * inch])
     accent_line.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdae54")),
+        ("BACKGROUND", (0, 0), (-1, -1), brand_color),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     elements.append(accent_line)
     elements.append(Spacer(1, 0.3 * inch))
 
-
-    # Header Row (Title + invoice Info)
+    # ===== HEADER =====
     header_data = [
         [
             Paragraph("<b>Umvuzo Media (Pty) Ltd</b>", styles["Normal"]),
-            Paragraph(f"<b>invoice</b>", styles["Title"])
+            Paragraph("<b>INVOICE</b>", styles["Title"])
         ],
         [
-            Paragraph("4 Veldblom Street<br/>Terenure<br/>Kempton Park<br/>1619", styles["Normal"]),
-            Paragraph(f"Invoice #: Q-{invoice.invoice_number:04d}<br/>Date: {invoice.created_at.strftime('%Y-%m-%d')}", styles["Normal"])
+            Paragraph(
+                "4 Veldblom Street<br/>Terenure<br/>Kempton Park<br/>1619",
+                styles["Normal"]
+            ),
+            Paragraph(
+                f"Invoice #: {client_prefix}-INV-{invoice.invoice_number:04d}<br/>"
+                f"Date: {invoice.created_at.strftime('%Y-%m-%d')}",
+                styles["Normal"]
+            )
         ]
     ]
 
     header_table = Table(header_data, colWidths=[4 * inch, 2 * inch])
     header_table.setStyle(TableStyle([
-    ("ALIGN", (1, 0), (1, -1), "RIGHT"),  # Align entire right column to right
-    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-]))
-
-    header_table.setStyle(TableStyle([
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
 
     elements.append(header_table)
     elements.append(Spacer(1, 0.3 * inch))
 
-    # Billed To Section
+    # ===== BILLED TO =====
     billed_data = [
         [Paragraph("<b>Billed To</b>", styles["Normal"])],
         [client.name],
@@ -68,9 +68,8 @@ def generate_invoice_pdf(invoice, client, items, filename):
 
     billed_table = Table(billed_data, colWidths=[6 * inch])
     billed_table.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (-1, 0), 2, colors.HexColor("#fdae54")),
-        ("BACKGROUND", (0, 0), (-1, 0), brand_blue),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 2, brand_color),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
@@ -78,7 +77,7 @@ def generate_invoice_pdf(invoice, client, items, filename):
     elements.append(billed_table)
     elements.append(Spacer(1, 0.4 * inch))
 
-    # Item Table
+    # ===== ITEMS TABLE =====
     table_data = [["Description", "Unit Cost", "Qty", "Amount"]]
     total = 0
 
@@ -95,61 +94,40 @@ def generate_invoice_pdf(invoice, client, items, filename):
 
     item_table = Table(table_data, colWidths=[3 * inch, 1 * inch, 1 * inch, 1 * inch])
     item_table.setStyle(TableStyle([
-
-    # Header underline
-    ("LINEBELOW", (0, 0), (-1, 0), 2, colors.HexColor("#fdae54")),
-
-    # Header background
-    ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
-
-    # Align description LEFT
-    ("ALIGN", (0, 1), (0, -1), "LEFT"),
-
-    # Align numeric columns RIGHT
-    ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-
-    # Align header properly
-    ("ALIGN", (0, 0), (0, 0), "LEFT"),
-    ("ALIGN", (1, 0), (-1, 0), "RIGHT"),
-
-    # Subtle row separators
-    ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.lightgrey),
-
-    # Padding
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-]))
-
-
+        ("LINEBELOW", (0, 0), (-1, 0), 2, brand_color),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.lightgrey),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
 
     elements.append(item_table)
     elements.append(Spacer(1, 0.4 * inch))
 
-    # Total Section
+    # ===== TOTAL SECTION =====
     total_table = Table(
     [["TOTAL", f"R {total:.2f}"]],
-    colWidths=[2.5 * inch, 1.5 * inch]
+    colWidths=[2 * inch, 2 * inch]
 )
 
     total_table.setStyle(TableStyle([
-    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdae54")),
-    ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
-    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-    ("FONTSIZE", (0, 0), (-1, -1), 16),
-    ("TOPPADDING", (0, 0), (-1, -1), 12),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-]))
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdae54")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("FONTSIZE", (0, 0), (-1, -1), 14),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
 
-# Wrap in container to align right
     wrapper = Table([[total_table]], colWidths=[6 * inch])
     wrapper.setStyle(TableStyle([
-    ("ALIGN", (0, 0), (-1, -1), "RIGHT")
-]))
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT")
+    ]))
 
     elements.append(wrapper)
-    elements.append(Spacer(1, 0.5 * inch))
+    elements.append(Spacer(1, 0.4 * inch))
 
-
-    # Banking Details
+    # ===== BANK DETAILS =====
     bank_data = [
         ["Bank:", "FNB/RMB"],
         ["Account Holder:", "Umvuzo Media (Pty) Ltd"],
@@ -160,16 +138,15 @@ def generate_invoice_pdf(invoice, client, items, filename):
 
     bank_table = Table(bank_data, colWidths=[2.5 * inch, 3.5 * inch])
     bank_table.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#fdae54")),
+        ("LINEBELOW", (0, 0), (-1, 0), 1, brand_color),
         ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.grey),
-
         ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
     ]))
 
     elements.append(bank_table)
     elements.append(Spacer(1, 0.4 * inch))
 
-    # Footer
+    # ===== FOOTER =====
     footer = Paragraph(
         "Contact: +27612130052 | info@umvuzomedia.co.za | www.umvuzomedia.co.za",
         styles["Normal"]

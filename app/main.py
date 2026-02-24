@@ -6,24 +6,32 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-
 from app.database import engine, SessionLocal, get_db
 from app import models
 from app.models import Client, Quote, Invoice, User
-
-from app.pdf import generate_quote_pdf
-
 from app.emailer import send_email
-
 from app.pdf import generate_quote_pdf
 from app.invoice_pdf import generate_invoice_pdf
 import json
 from app.models import QuoteItem, InvoiceItem
 from app.models import Service
+from fastapi import Request
+from passlib.context import CryptContext
+import secrets
+from datetime import datetime, timedelta
+from app.models import PasswordResetToken
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import re
 
+EMAIL_REGEX = r"^[^@]+@[^@]+\.[^@]+$"
+
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
 # -------------------------
 # APP SETUP
@@ -59,11 +67,12 @@ def login_user(
     user = db.query(User).filter(User.username == username).first()
     db.close()
 
-    if not user or user.password != password:
-        return RedirectResponse("/login", status_code=302)
+    if not user or not verify_password(password, user.password):
+        request.session["flash"] = "Invalid email or password."
+        return RedirectResponse("/login", status_code=303)
 
     request.session["user_id"] = user.id
-    return RedirectResponse("/dashboard", status_code=302)
+    return RedirectResponse("/dashboard", status_code=303)
 
 
 @app.get("/logout")
@@ -78,17 +87,50 @@ def logout(request: Request):
 
 @app.get("/users/create", response_class=HTMLResponse)
 def create_user_page(request: Request):
+    if "user_id" not in request.session:
+        return RedirectResponse("/login", status_code=303)
+
     return templates.TemplateResponse("create_user.html", {"request": request})
 
 
+
 @app.post("/users/create")
-def create_user(username: str = Form(...), password: str = Form(...)):
+def create_user(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    # 🔒 Require login
+    if "user_id" not in request.session:
+        return RedirectResponse("/login", status_code=303)
+
     db = SessionLocal()
-    user = User(username=username, password=password)
+
+    # Validate email format
+    if not re.match(EMAIL_REGEX, username):
+        request.session["flash"] = "Username must be a valid email address."
+        db.close()
+        return RedirectResponse("/users/create", status_code=303)
+
+    # Check duplicate
+    existing_user = db.query(User).filter(User.username == username).first()
+    if existing_user:
+        request.session["flash"] = "User already exists."
+        db.close()
+        return RedirectResponse("/users/create", status_code=303)
+
+    # Create user with hashed password
+    user = User(
+        username=username,
+        password=hash_password(password)
+    )
+
     db.add(user)
     db.commit()
     db.close()
-    return RedirectResponse("/dashboard", status_code=302)
+
+    request.session["flash"] = "User created successfully."
+    return RedirectResponse("/dashboard", status_code=303)
 
 
 # =====================================================
@@ -134,17 +176,60 @@ def create_client(
     name: str = Form(...),
     email: str = Form(...),
     phone: str = Form(...),
+    address: str = Form(None),
+    billing_name: str = Form(None),
+    billing_email: str = Form(None),
+    billing_address: str = Form(None),
+    vat_number: str = Form(None),
+    tax_number: str = Form(None),
+    payment_terms: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    new_client = Client(name=name, email=email, phone=phone)
+    
+    import re
+
+    # Clean name (letters only)
+    clean_name = re.sub(r'[^A-Za-z]', '', name).upper()
+    base_code = (clean_name + "XXX")[:3]
+
+    # Check duplicates
+    existing_clients = db.query(Client).all()
+
+    duplicate_count = 0
+    for c in existing_clients:
+        if c.client_code and c.client_code.startswith(base_code):
+            duplicate_count += 1
+
+    if duplicate_count > 0:
+        client_code = f"{base_code}{duplicate_count + 1}"
+    else:
+        client_code = base_code
+
+    new_client = Client(
+        name=name,
+        email=email,
+        phone=phone,
+        address=address,
+        client_code=client_code,
+        billing_name=billing_name,
+        billing_email=billing_email,
+        billing_address=billing_address,
+        vat_number=vat_number,
+        tax_number=tax_number,
+        payment_terms=payment_terms
+    )
+
     db.add(new_client)
     db.commit()
+
     return RedirectResponse("/clients-page", status_code=303)
+
 
 
 @app.get("/clients/{client_id}", response_class=HTMLResponse)
 def client_history(client_id: int, request: Request, db: Session = Depends(get_db)):
-    client = db.query(Client).get(client_id)
+    client = db.get(Client, client_id)
+
     quotes = db.query(Quote).filter(Quote.client_id == client_id).all()
     invoices = db.query(Invoice).filter(Invoice.client_id == client_id).all()
 
@@ -163,8 +248,21 @@ def client_history(client_id: int, request: Request, db: Session = Depends(get_d
 @app.get("/quotes-page", response_class=HTMLResponse)
 def quotes_page(request: Request):
     db = SessionLocal()
-    quotes = db.query(Quote).options(joinedload(Quote.client)).all()
+    
+    from sqlalchemy.orm import joinedload
+
+    from sqlalchemy.orm import joinedload
+
+    quotes = (
+        db.query(Quote)
+        .options(
+            joinedload(Quote.items),
+            joinedload(Quote.client)
+        )
+        .all()
+)
     db.close()
+
     return templates.TemplateResponse("quotes.html", {"request": request, "quotes": quotes})
 
 
@@ -183,17 +281,19 @@ def create_quote_form(request: Request, db: Session = Depends(get_db)):
 )
 
 
-
-
-
 @app.post("/quotes/create")
 def create_quote(
     client_id: int = Form(...),
     items_data: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    last_quote = db.query(Quote).order_by(Quote.id.desc()).first()
-    next_number = 1 if not last_quote else last_quote.quote_number + 1
+    last_quote = (
+        db.query(func.max(Quote.quote_number))
+        .filter(Quote.client_id == client_id)
+        .scalar()
+)
+
+    next_number = 1 if not last_quote else last_quote + 1
 
     # Create base quote first
     new_quote = Quote(
@@ -246,7 +346,12 @@ def convert_quote(quote_id: int, db: Session = Depends(get_db)):
         return RedirectResponse("/quotes-page", status_code=302)
 
     # Get next invoice number
-    last_invoice = db.query(func.max(Invoice.invoice_number)).scalar()
+    last_invoice = (
+        db.query(func.max(Invoice.invoice_number))
+        .filter(Invoice.client_id == quote.client_id)
+        .scalar()
+)
+
     next_number = 1 if not last_invoice else last_invoice + 1
 
     # Create invoice
@@ -300,7 +405,17 @@ def convert_quote(quote_id: int, db: Session = Depends(get_db)):
 @app.get("/invoices-page", response_class=HTMLResponse)
 def invoices_page(request: Request):
     db = SessionLocal()
-    invoices = db.query(Invoice).options(joinedload(Invoice.client)).all()
+
+    from sqlalchemy.orm import joinedload
+
+    invoices = (
+        db.query(Invoice)
+        .options(
+            joinedload(Invoice.items),
+            joinedload(Invoice.client)
+        )
+        .all()
+    )
     db.close()
     return templates.TemplateResponse("invoices.html", {"request": request, "invoices": invoices})
 
@@ -332,9 +447,7 @@ def invoice_pdf(invoice_id: int, db: Session = Depends(get_db)):
     ).all()
 
     filename = f"invoice_{invoice.id}.pdf"
-
-    generate_invoice_pdf(invoice, client, items, filename)
-
+    generate_invoice_pdf(invoice, client, items, filename, client.client_code)
     return FileResponse(filename, media_type="application/pdf", filename=filename)
 
 
@@ -344,7 +457,8 @@ def invoice_pdf(invoice_id: int, db: Session = Depends(get_db)):
 # INVOICE EMAIL
 # =========================
 @app.get("/invoices/{invoice_id}/email")
-def email_invoice(invoice_id: int, db: Session = Depends(get_db)):
+
+def email_invoice(request: Request, invoice_id: int, db: Session = Depends(get_db)):
 
     invoice = db.get(Invoice, invoice_id)
     if not invoice:
@@ -360,7 +474,7 @@ def email_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
     filename = f"invoice_{invoice.id}.pdf"
 
-    generate_invoice_pdf(invoice, client, items, filename)
+    generate_invoice_pdf(invoice, client, items, filename, client.client_code)
 
     send_email(
         to_email=client.email,
@@ -376,11 +490,9 @@ Thank you for your business.
         pdf_path=filename
     )
 
+    request.session["flash"] = "Invoice emailed successfully."
+    
     return RedirectResponse("/invoices-page", status_code=303)
-
-
-
-
 
 
 
@@ -445,8 +557,6 @@ def email_quote(quote_id: int, request: Request, db: Session = Depends(get_db)):
 
 
 
-
-
 @app.get("/quotes/{quote_id}/approved")
 def approve_quote(quote_id: int, db: Session = Depends(get_db)):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
@@ -478,7 +588,6 @@ import os
 def create_default_admin():
     db = SessionLocal()
 
-    # Check if any users exist
     existing_user = db.query(User).first()
 
     if not existing_user:
@@ -492,7 +601,7 @@ def create_default_admin():
 
         admin = User(
             username=admin_username,
-            password=admin_password
+            password=hash_password(admin_password)  # ✅ HASHED
         )
 
         db.add(admin)
@@ -553,12 +662,68 @@ from fastapi.responses import HTMLResponse
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory="app/templates")
 
+
+
+@app.get("/clients/{client_id}/edit")
+def edit_client_page(client_id: int, request: Request, db: Session = Depends(get_db)):
+
+    client = db.query(Client).filter(Client.id == client_id).first()
+
+    if not client:
+        return RedirectResponse("/clients-page")
+
+    return templates.TemplateResponse(
+        "edit_client.html",
+        {"request": request, "client": client}
+    )
+
+
+@app.post("/clients/{client_id}/edit")
+def update_client(
+    client_id: int,
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    address: str = Form(None),
+    billing_name: str = Form(None),
+    billing_email: str = Form(None),
+    billing_address: str = Form(None),
+    vat_number: str = Form(None),
+    tax_number: str = Form(None),
+    payment_terms: str = Form(None),
+    db: Session = Depends(get_db)
+):
+
+    client = db.query(Client).filter(Client.id == client_id).first()
+
+    if not client:
+        return RedirectResponse("/clients-page")
+
+    client.name = name
+    client.email = email
+    client.phone = phone
+    client.address = address
+    client.billing_name = billing_name
+    client.billing_email = billing_email
+    client.billing_address = billing_address
+    client.vat_number = vat_number
+    client.tax_number = tax_number
+    client.payment_terms = payment_terms
+
+    db.commit()
+
+    return RedirectResponse("/clients-page", status_code=303)
+
+
+# =====================================================
+# SERVICES
+# =====================================================
 
 @app.get("/services", response_class=HTMLResponse)
-def view_services(request: Request, db: Session = Depends(get_db)):
+def services_page(request: Request, db: Session = Depends(get_db)):
     services = db.query(Service).order_by(Service.category, Service.name).all()
+
     return templates.TemplateResponse(
         "services.html",
         {
@@ -566,3 +731,223 @@ def view_services(request: Request, db: Session = Depends(get_db)):
             "services": services
         }
     )
+
+
+
+@app.get("/services/{service_id}/edit", response_class=HTMLResponse)
+def edit_service_page(service_id: int, request: Request, db: Session = Depends(get_db)):
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        return RedirectResponse("/services", status_code=303)
+
+    return templates.TemplateResponse("edit_service.html", {
+        "request": request,
+        "service": service
+    })
+
+
+@app.post("/services/{service_id}/edit")
+def update_service(
+    service_id: int,
+    name: str = Form(...),
+    description: str = Form(...),
+    price: float = Form(...),
+    category: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        return RedirectResponse("/services", status_code=303)
+
+    service.name = name
+    service.description = description
+    service.price = price
+    service.category = category
+
+    db.commit()
+
+    return RedirectResponse("/services", status_code=303)
+
+
+@app.post("/services/create")
+def create_service(
+    name: str = Form(...),
+    description: str = Form(...),
+    price: float = Form(...),
+    category: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    print("Creating service:", name, description, price, category)
+    service = Service(
+        name=name,
+        description=description,
+        price=price,
+        category=category
+    )
+
+    db.add(service)
+    db.commit()
+
+    return RedirectResponse("/services", status_code=303)
+
+@app.get("/services/{service_id}/delete")
+def delete_service(service_id: int, db: Session = Depends(get_db)):
+    service = db.query(Service).filter(Service.id == service_id).first()
+
+    if service:
+        db.delete(service)
+        db.commit()
+
+    return RedirectResponse("/services", status_code=303)
+
+
+@app.get("/change-password")
+def change_password_page(request: Request):
+    if "user_id" not in request.session:
+        return RedirectResponse("/login", status_code=303)
+    return templates.TemplateResponse("change_password.html", {"request": request})
+
+
+@app.post("/change-password")
+def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    if "user_id" not in request.session:
+        return RedirectResponse("/login", status_code=303)
+
+    db = SessionLocal()
+    user = db.query(User).get(request.session["user_id"])
+
+    if not verify_password(current_password, user.password):
+        request.session["flash"] = "Current password is incorrect."
+        db.close()
+        return RedirectResponse("/change-password", status_code=303)
+
+    if new_password != confirm_password:
+        request.session["flash"] = "Passwords do not match."
+        db.close()
+        return RedirectResponse("/change-password", status_code=303)
+
+    user.password = hash_password(new_password)
+    db.commit()
+    db.close()
+
+    request.session["flash"] = "Password updated successfully."
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@app.get("/forgot-password")
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request}
+    )
+
+
+@app.post("/forgot-password")
+def forgot_password(request: Request, username: str = Form(...)):
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == username).first()
+
+    # Always show same message (prevent user enumeration)
+    flash_message = "If that email exists, a reset link has been sent."
+
+    if user:
+        token = secrets.token_urlsafe(32)
+
+        reset = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=datetime.utcnow() + timedelta(hours=1)
+        )
+
+        db.add(reset)
+        db.commit()
+
+        BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+        reset_link = f"{BASE_URL}/reset-password/{token}"
+
+        send_email(
+            to_email=user.username,
+            subject="Password Reset - Umvuzo Invoicing",
+            body=f"""
+Hello,
+
+Click the link below to reset your password:
+
+{reset_link}
+
+This link expires in 1 hour.
+
+If you did not request this, ignore this email.
+""",
+    pdf_path=None
+)
+
+    db.close()
+
+    request.session["flash"] = flash_message
+    return RedirectResponse("/login", status_code=303)
+
+
+
+@app.get("/reset-password/{token}")
+def reset_password_page(request: Request, token: str):
+    db = SessionLocal()
+    reset = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token
+    ).first()
+    db.close()
+
+    if not reset or reset.expires_at < datetime.utcnow():
+        request.session["flash"] = "Invalid or expired reset link."
+        return RedirectResponse("/login", status_code=303)
+
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "token": token}
+    )
+
+
+@app.post("/reset-password/{token}")
+def reset_password(
+    request: Request,
+    token: str,
+    new_password: str = Form(...),
+    confirm_password: str = Form(...)
+):
+    db = SessionLocal()
+
+    reset = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token
+    ).first()
+
+    if not reset:
+        db.close()
+        request.session["flash"] = "Invalid or expired reset link."
+        return RedirectResponse("/login", status_code=303)
+
+    if reset.expires_at < datetime.utcnow():
+        db.delete(reset)
+        db.commit()
+        db.close()
+        request.session["flash"] = "Reset link has expired."
+        return RedirectResponse("/login", status_code=303)
+
+    if new_password != confirm_password:
+        db.close()
+        request.session["flash"] = "Passwords do not match."
+        return RedirectResponse(f"/reset-password/{token}", status_code=303)
+
+    user = db.query(User).get(reset.user_id)
+    user.password = hash_password(new_password)
+
+    db.delete(reset)  # one-time use
+    db.commit()
+    db.close()
+
+    request.session["flash"] = "Password reset successfully."
+    return RedirectResponse("/login", status_code=303)

@@ -18,9 +18,14 @@
 
 {% for invoice in invoices %}
 <tr>
-    <td>INV-{{ "%04d"|format(invoice.invoice_number) }}</td>
+    <td>{{ invoice.client.name[:3].upper() }}-INV-{{ "%04d"|format(invoice.invoice_number) }}</td>
     <td>{{ invoice.client.name }}</td>
-    <td>{{ invoice.items }}</td>
+    <td>
+    {% for item in invoice.items %}
+        {{ item.description }} (x{{ item.quantity }})<br>
+        {% endfor %}
+    </td>
+
     <td>R {{ "%.2f"|format(invoice.total) }}</td>
     <td>{{ "PAID" if invoice.paid else "UNPAID" }}</td>
     <td>{{ invoice.created_at.strftime("%Y-%m-%d") }}</td>

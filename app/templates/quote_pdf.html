@@ -78,7 +78,7 @@ td {
     <th>Total</th>
 </tr>
 <tr>
-    <td>{{ quote.items }}</td>
+<td>{{ quote.items|length }} items</td>
     <td>R {{ "%.2f"|format(quote.total) }}</td>
 </tr>
 </table>

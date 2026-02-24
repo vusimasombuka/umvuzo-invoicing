@@ -127,26 +127,25 @@ def generate_quote_pdf(quote, client, items, filename):
     # Total Section
     total_table = Table(
     [["TOTAL", f"R {total:.2f}"]],
-    colWidths=[2.5 * inch, 1.5 * inch]
+    colWidths=[2 * inch, 2 * inch]
 )
 
     total_table.setStyle(TableStyle([
-    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdae54")),
-    ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
-    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-    ("FONTSIZE", (0, 0), (-1, -1), 16),
-    ("TOPPADDING", (0, 0), (-1, -1), 12),
-    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-]))
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdae54")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("FONTSIZE", (0, 0), (-1, -1), 14),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
 
-# Wrap in container to align right
     wrapper = Table([[total_table]], colWidths=[6 * inch])
     wrapper.setStyle(TableStyle([
-    ("ALIGN", (0, 0), (-1, -1), "RIGHT")
-]))
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT")
+    ]))
 
     elements.append(wrapper)
-    elements.append(Spacer(1, 0.5 * inch))
+    elements.append(Spacer(1, 0.4 * inch))
 
 
     # Banking Details

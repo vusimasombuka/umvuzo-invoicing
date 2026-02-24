@@ -144,7 +144,6 @@
     </style>
 </head>
 <body>
-
 <div class="navbar">
     <div class="brand">
         Umvuzo Media
@@ -158,6 +157,10 @@
     <a href="/services">Pricing</a>
     <a href="/clients/create" class="create-btn">+ New Client</a>
     <a href="/quotes/create" class="create-btn">+ New Quote</a>
+    {% if request.session.get("user_id") %}
+    <a href="/change-password">Change Password</a>
+    {% endif %}
+    <a href="/users/create">Create User</a>
     <a href="/logout">Logout</a>
 </div>
 
@@ -167,7 +170,7 @@
 
     {% if request.session.get("flash") %}
         <div style="
-            background:#28a745;
+            background:#53f86f;
             color:white;
             padding:12px 16px;
             margin-bottom:15px;

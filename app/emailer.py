@@ -2,16 +2,12 @@ import smtplib
 from email.message import EmailMessage
 import os
 
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.xneelo.co.za")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+def send_email(to_email, subject, body, pdf_path=None):
 
-
-def send_email(to_email: str, subject: str, body: str, pdf_path: str):
-
-    if not to_email:
-        raise Exception("Client has no email address")
+    SMTP_SERVER = os.getenv("SMTP_SERVER")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+    EMAIL_USER = os.getenv("EMAIL_USER")
+    EMAIL_PASS = os.getenv("EMAIL_PASS")
 
     msg = EmailMessage()
     msg["From"] = EMAIL_USER
@@ -19,21 +15,19 @@ def send_email(to_email: str, subject: str, body: str, pdf_path: str):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    with open(pdf_path, "rb") as f:
+    # Attach PDF only if provided
+    if pdf_path:
+        with open(pdf_path, "rb") as f:
+            file_data = f.read()
+            file_name = os.path.basename(pdf_path)
+
         msg.add_attachment(
-            f.read(),
+            file_data,
             maintype="application",
             subtype="pdf",
-            filename=os.path.basename(pdf_path)
+            filename=file_name
         )
 
-    try:
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
-            server.login(EMAIL_USER, EMAIL_PASS)
-            server.send_message(msg)
-
-        print("Email sent successfully!")
-
-    except Exception as e:
-        print("EMAIL ERROR:", e)
-        raise e
+    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
+        smtp.login(EMAIL_USER, EMAIL_PASS)
+        smtp.send_message(msg)

@@ -27,7 +27,12 @@ Email sent successfully ✅
             <tr>
                 <td>Q-{{ "%04d"|format(quote.quote_number) }}</td>
                 <td>{{ quote.client.name }}</td>
-                <td>{{ quote.items }}</td>
+                <td>
+                    {% for item in quote.items %}
+                    {{ item.description }} (x{{ item.quantity }})<br>
+                    {% endfor %}
+                </td>
+
                 <td>R {{ "%.2f"|format(quote.total) }}</td>
                 <td>{{ quote.status }}</td>
                 <td>{{ quote.created_at.strftime("%Y-%m-%d") }}</td>
