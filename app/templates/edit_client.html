@@ -1,52 +1,22 @@
 {% extends "base.html" %}
-
 {% block content %}
-
 <h2>Edit Client</h2>
-
 <form method="post">
-
-    <label>Name</label><br>
-    <input type="text" name="name" value="{{ client.name }}" required><br><br>
-
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name *</label><br>
+    <input type="text" name="name" value="{{ client.name }}" required style="width:100%; padding:8px; margin:5px 0;"><br><br>
     <label>Email</label><br>
-    <input type="email" name="email" value="{{ client.email }}"><br><br>
-
+    <input type="email" name="email" value="{{ client.email or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
     <label>Phone</label><br>
-    <input type="text" name="phone" value="{{ client.phone }}"><br><br>
-    
-<h3>Billing Information</h3>
-
-<input type="text" name="billing_name"
-       placeholder="Billing Name"
-       value="{{ client.billing_name or '' }}"><br><br>
-
-<input type="text" name="billing_email"
-       placeholder="Billing Email"
-       value="{{ client.billing_email or '' }}"><br><br>
-
-<input type="text" name="billing_address"
-       placeholder="Billing Address"
-       value="{{ client.billing_address or '' }}"><br><br>
-
-<input type="text" name="vat_number"
-       placeholder="VAT Number"
-       value="{{ client.vat_number or '' }}"><br><br>
-
-<input type="text" name="tax_number"
-       placeholder="Tax Number"
-       value="{{ client.tax_number or '' }}"><br><br>
-
-<input type="text" name="payment_terms"
-       placeholder="Payment Terms (e.g. 30 days)"
-       value="{{ client.payment_terms or '' }}"><br><br>
-
-
-    <button type="submit"
-            style="background:#047857; color:rgb(255, 255, 255); padding:8px 16px; border:none; border-radius:6px;">
-        Update Client
-    </button>
-
+    <input type="text" name="phone" value="{{ client.phone or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <h3>Billing Information</h3>
+    <input type="text" name="billing_name" placeholder="Billing Name" value="{{ client.billing_name or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <input type="email" name="billing_email" placeholder="Billing Email" value="{{ client.billing_email or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <input type="text" name="billing_address" placeholder="Billing Address" value="{{ client.billing_address or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <input type="text" name="vat_number" placeholder="VAT Number" value="{{ client.vat_number or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <input type="text" name="tax_number" placeholder="Tax Number" value="{{ client.tax_number or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <input type="text" name="payment_terms" placeholder="Payment Terms" value="{{ client.payment_terms or '' }}" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <button type="submit" style="background:#047857; color:white; padding:8px 16px; border:none; border-radius:6px;">Update Client</button>
+    <a href="/clients-page" style="margin-left:10px; color:#666; text-decoration:none;">Cancel</a>
 </form>
-
 {% endblock %}

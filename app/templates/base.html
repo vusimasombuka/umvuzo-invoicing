@@ -4,187 +4,189 @@
     <meta charset="UTF-8">
     <title>{% block title %}Umvuzo Media{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ request.session.get('csrf_token', '') }}">
 
     <style>
-        :root {
-            --brand-blue: #49bef5;
-            --bg-light: #f4f6f8;
-            --text-dark: #222;
+        :root { --brand-blue: #49bef5; --bg-light: #f4f6f8; --text-dark: #222; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg-light); color: var(--text-dark); }
+        
+        .navbar { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 12px 20px; 
+            background: var(--brand-blue); 
+            flex-wrap: wrap; 
         }
-
-        * {
-            box-sizing: border-box;
+        
+        .brand { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            font-weight: bold; 
+            font-size: 16px; 
+            color: white; 
         }
-
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: var(--bg-light);
-            color: var(--text-dark);
+        
+        .user-info { 
+            color: white; 
+            font-size: 13px; 
+            margin-right: 15px; 
+            padding: 4px 10px; 
+            background: rgba(0,0,0,0.1); 
+            border-radius: 12px; 
         }
-
-        /* NAVBAR */
-        .navbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 20px;
-            background: var(--brand-blue);
+        
+        .user-info .role { 
+            font-size: 11px; 
+            opacity: 0.9; 
+            text-transform: uppercase; 
         }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: bold;
-            font-size: 16px;
-            color: white;
+        
+        .nav-links { 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
         }
-
-        .brand img {
-            height: 32px;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 16px;
-        }
-
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: bold;
-            padding: 6px 10px;
-            border-radius: 4px;
-        }
-
-        .nav-links a:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        /* CONTENT */
-        .container {
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        h2 {
-            margin-top: 0;
-        }
-
-        /* TABLES */
-        .table-wrapper {
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 900px;
-        }
-
-        th, td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            font-size: 14px;
-            text-align: left;
-            vertical-align: middle;
-        }
-
-        th {
-            background: #f1f1f1;
-            font-weight: bold;
-        }
-
-        /* BUTTONS */
-        .actions {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 6px 10px;
-            font-size: 12px;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
+        
+        .nav-links a { 
+            color: white; 
+            text-decoration: none; 
+            font-size: 14px; 
+            font-weight: bold; 
+            padding: 8px 12px; 
+            border-radius: 4px; 
             white-space: nowrap;
         }
-
         
-.create-btn:hover {
-    background: #e6f7ff;
-}
-
-
+        .nav-links a:hover { 
+            background: rgba(255,255,255,0.2); 
+        }
+        
+        /* Create buttons - distinct style with dark text */
+        .nav-links a.create-btn {
+            background: white;
+            color: #1e3a8a;  /* Dark blue text for contrast */
+            border: 2px solid white;
+        }
+        
+        .nav-links a.create-btn:hover {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .container { 
+            padding: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        
+        h2 { margin-top: 0; }
+        
+        .table-wrapper { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 12px; 
+            overflow-x: auto; 
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            min-width: 900px; 
+        }
+        
+        th, td { 
+            padding: 10px; 
+            border-bottom: 1px solid #ddd; 
+            font-size: 14px; 
+            text-align: left; 
+            vertical-align: middle; 
+        }
+        
+        th { 
+            background: #f1f1f1; 
+            font-weight: bold; 
+        }
+        
+        .actions { 
+            display: flex; 
+            gap: 6px; 
+            flex-wrap: wrap; 
+        }
+        
+        .btn { 
+            padding: 6px 10px; 
+            font-size: 12px; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 4px; 
+            white-space: nowrap; 
+        }
+        
         .pdf { background: #0a6cff; }
         .email { background: #28a745; }
         .sent { background: #ffc107; color: #000; }
         .approve { background: #17a2b8; }
         .convert { background: #6f42c1; }
         .mark { background: #dc3545; }
-
-        /* MOBILE */
+        
         @media (max-width: 768px) {
-            .nav-links {
-                flex-wrap: wrap;
-                gap: 8px;
+            .navbar { 
+                flex-direction: column; 
+                align-items: flex-start; 
             }
-
-            .container {
-                padding: 14px;
+            
+            .nav-links { 
+                flex-wrap: wrap; 
+                gap: 8px; 
+                margin-top: 10px; 
+                width: 100%;
+            }
+            
+            .container { 
+                padding: 14px; 
             }
         }
     </style>
 </head>
 <body>
 <div class="navbar">
-    <div class="brand">
-        Umvuzo Media
+    <div style="display: flex; align-items: center;">
+        <div class="brand" style="margin-right: 20px;">Umvuzo Media</div>
+        {% if current_user %}
+        <div class="user-info">
+            <div>{{ current_user.username }}</div>
+            <div class="role">{{ current_user.role.value }}</div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="nav-links">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/quotes-page">Quotes</a>
-    <a href="/invoices-page">Invoices</a>
-    <a href="/clients-page">Clients</a>
-    <a href="/services">Pricing</a>
-    <a href="/clients/create" class="create-btn">+ New Client</a>
-    <a href="/quotes/create" class="create-btn">+ New Quote</a>
-    {% if request.session.get("user_id") %}
-    <a href="/change-password">Change Password</a>
-    {% endif %}
-    <a href="/users/create">Create User</a>
-    <a href="/logout">Logout</a>
-</div>
-
+        <a href="/dashboard">Dashboard</a>
+        <a href="/quotes-page">Quotes</a>
+        <a href="/invoices-page">Invoices</a>
+        <a href="/clients-page">Clients</a>
+        <a href="/services">Pricing</a>
+        <a href="/clients/create" class="create-btn">+ New Client</a>
+        <a href="/quotes/create" class="create-btn">+ New Quote</a>
+        {% if current_user and current_user.role.value == 'admin' %}
+        <a href="/users/create">Create User</a>
+        {% endif %}
+        <a href="/change-password">Password</a>
+        <a href="/logout">Logout</a>
+    </div>
 </div>
 
 <div class="container">
-
     {% if request.session.get("flash") %}
-        <div style="
-            background:#53f86f;
-            color:white;
-            padding:12px 16px;
-            margin-bottom:15px;
-            border-radius:6px;
-            font-weight:bold;
-        ">
+        <div style="background:#28a745; color:white; padding:12px 16px; margin-bottom:15px; border-radius:6px; font-weight:bold;">
             {{ request.session.pop("flash") }}
         </div>
     {% endif %}
-
     {% block content %}{% endblock %}
-
 </div>
-
-
 </body>
 </html>

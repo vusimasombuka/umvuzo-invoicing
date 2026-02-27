@@ -1,64 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
-
 <h2>Create Quote</h2>
-
-<form method="post" action="/quotes/create">
-
-    <!-- CLIENT SELECT -->
-    <label>Client</label><br>
-    <input list="clients_list" id="client_input" placeholder="Type client name..." required>
-
+<form method="post" action="/quotes/create" id="quote-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Client *</label><br>
+    <input list="clients_list" id="client_input" placeholder="Type client name..." required style="width:100%; padding:8px; margin:5px 0;">
     <datalist id="clients_list">
         {% for client in clients %}
             <option value="{{ client.name }}" data-id="{{ client.id }}"></option>
         {% endfor %}
     </datalist>
-
     <input type="hidden" name="client_id" id="client_id">
-
     <br><br>
-
-    <!-- ITEMS TABLE -->
     <h3>Items</h3>
-
-<table id="items-table" style="width:100%; border-collapse: collapse;">
-    <tr style="background:#49bef5; color:rgb(58, 57, 57);">
-        <th style="border:1px solid #ddd; padding:8px;">Service</th>
-        <th style="border:1px solid #ddd; padding:8px;">Description</th>
-        <th style="border:1px solid #ddd; padding:8px;">Unit Cost</th>
-        <th style="border:1px solid #ddd; padding:8px;">Quantity</th>
-        <th style="border:1px solid #ddd; padding:8px;">Amount</th>
-        <th style="border:1px solid #ddd; padding:8px;"></th>
-    </tr>
-</table>
-
-<br>
-<button type="button" onclick="addRow()">+ Add Item</button>
-
-
-    <br><br>
-
-    <h3>Total: R <span id="grand-total">0.00</span></h3>
-
-    <!-- Hidden field to send JSON -->
-    <input type="hidden" name="items_data" id="items_data">
-
+    <div class="table-wrapper">
+        <table id="items-table" style="width:100%; border-collapse: collapse;">
+            <tr style="background:#49bef5; color:rgb(58, 57, 57);">
+                <th style="border:1px solid #ddd; padding:8px;">Service</th>
+                <th style="border:1px solid #ddd; padding:8px;">Description</th>
+                <th style="border:1px solid #ddd; padding:8px;">Unit Cost</th>
+                <th style="border:1px solid #ddd; padding:8px;">Quantity</th>
+                <th style="border:1px solid #ddd; padding:8px;">Amount</th>
+                <th style="border:1px solid #ddd; padding:8px;"></th>
+            </tr>
+        </table>
+    </div>
     <br>
-
-    <button type="submit">Save Quote</button>
-
+    <button type="button" onclick="addRow()" style="background:#1e3a8a; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add Item</button>
+    <br><br>
+    <h3>Total: R <span id="grand-total" style="color:#047857;">0.00</span></h3>
+    <input type="hidden" name="items_data" id="items_data">
+    <br>
+    <button type="submit" onclick="return validateAndSubmit()" style="background:#047857; color:white; padding:10px 30px; border:none; border-radius:6px; cursor:pointer; font-size:16px;">Save Quote</button>
+    <a href="/quotes-page" style="margin-left:15px; color:#666; text-decoration:none;">Cancel</a>
 </form>
 
 <script>
-// CLIENT SELECTION
 document.getElementById("client_input").addEventListener("input", function() {
     let input = this.value;
     let options = document.querySelectorAll("#clients_list option");
     let hiddenInput = document.getElementById("client_id");
-
     hiddenInput.value = "";
-
     options.forEach(option => {
         if (option.value === input) {
             hiddenInput.value = option.getAttribute("data-id");
@@ -66,130 +48,79 @@ document.getElementById("client_input").addEventListener("input", function() {
     });
 });
 
-
-// ADD ROW FUNCTION
 function addRow() {
     const table = document.getElementById("items-table");
     const row = table.insertRow();
-
-    // SERVICE
-    let serviceCell = row.insertCell(0);
-    serviceCell.innerHTML = `
-        <select class="service-select">
-            <option value="">Select Service</option>
-            {% for service in services %}
-            <option value="{{ service.name }}"
-                    data-price="{{ service.price }}"
-                    data-description="{{ service.description }}">
-                {{ service.name }} (R {{ "%.2f"|format(service.price) }})
-            </option>
-            {% endfor %}
-        </select>
-    `;
-
-    // DESCRIPTION
-    let descCell = row.insertCell(1);
-    descCell.innerHTML = `<input type="text" name="description[]" class="description-input" required>`;
-
-    // UNIT COST
-    let costCell = row.insertCell(2);
-    costCell.innerHTML = `<input type="number" name="unit_cost[]" step="0.01" class="unit-cost" required>`;
-
-    // QUANTITY
-    let qtyCell = row.insertCell(3);
-    qtyCell.innerHTML = `<input type="number" name="quantity[]" value="1" min="1" class="quantity" required>`;
-
-    // AMOUNT
+    row.insertCell(0).innerHTML = `<select class="service-select" style="width:100%; padding:5px;"><option value="">Select Service</option>{% for service in services %}<option value="{{ service.name }}" data-price="{{ service.price }}" data-description="{{ service.description }}">{{ service.name }} (R {{ "%.2f"|format(service.price) }})</option>{% endfor %}</select>`;
+    row.insertCell(1).innerHTML = `<input type="text" name="description[]" class="description-input" required style="width:100%; padding:5px;">`;
+    row.insertCell(2).innerHTML = `<input type="number" name="unit_cost[]" step="0.01" class="unit-cost" required style="width:100%; padding:5px;">`;
+    row.insertCell(3).innerHTML = `<input type="number" name="quantity[]" value="1" min="1" class="quantity" required style="width:100%; padding:5px;">`;
     let amountCell = row.insertCell(4);
     amountCell.innerHTML = `0.00`;
     amountCell.classList.add("amount");
-
-    // DELETE BUTTON
-    let deleteCell = row.insertCell(5);
-    deleteCell.innerHTML = `<button type="button" onclick="removeRow(this)">X</button>`;
-
+    amountCell.style.textAlign = "right";
+    amountCell.style.fontWeight = "bold";
+    row.insertCell(5).innerHTML = `<button type="button" onclick="removeRow(this)" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">X</button>`;
     attachEvents(row);
 }
 
 document.addEventListener("change", function(e) {
     if (e.target.classList.contains("service-select")) {
-
         let selected = e.target.options[e.target.selectedIndex];
         let row = e.target.closest("tr");
-
-        let price = selected.getAttribute("data-price");
-        let description = selected.getAttribute("data-description");
-
-        row.querySelector(".unit-cost").value = price || "";
-        row.querySelector(".description-input").value = description || "";
-
+        row.querySelector(".unit-cost").value = selected.getAttribute("data-price") || "";
+        row.querySelector(".description-input").value = selected.getAttribute("data-description") || "";
         calculateRow(row);
     }
 });
 
-
-
-// CALCULATE TOTAL
 function calculateRow(row) {
     let unit = parseFloat(row.querySelector(".unit-cost").value) || 0;
     let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-
-    let amount = unit * qty;
-    row.querySelector(".amount").innerText = amount.toFixed(2);
-
+    row.querySelector(".amount").innerText = (unit * qty).toFixed(2);
     calculateTotal();
 }
 
 function calculateTotal() {
     let total = 0;
     let items = [];
-
     document.querySelectorAll("#items-table tr").forEach((row, index) => {
         if (index === 0) return;
-
         let descInput = row.querySelector(".description-input");
         let unitInput = row.querySelector(".unit-cost");
         let qtyInput = row.querySelector(".quantity");
-
         if (!descInput) return;
-
-        let desc = descInput.value;
         let unit = parseFloat(unitInput.value) || 0;
         let qty = parseFloat(qtyInput.value) || 0;
-        let amount = unit * qty;
-
-        total += amount;
-
-        items.push({
-            description: desc,
-            unit_cost: unit,
-            quantity: qty
-        });
+        total += unit * qty;
+        items.push({description: descInput.value, unit_cost: unit, quantity: qty});
     });
-
     document.getElementById("grand-total").innerText = total.toFixed(2);
     document.getElementById("items_data").value = JSON.stringify(items);
 }
 
 function attachEvents(row) {
-    row.querySelector(".unit-cost").addEventListener("input", function() {
-        calculateRow(row);
-    });
-
-    row.querySelector(".quantity").addEventListener("input", function() {
-        calculateRow(row);
-    });
+    row.querySelector(".unit-cost").addEventListener("input", () => calculateRow(row));
+    row.querySelector(".quantity").addEventListener("input", () => calculateRow(row));
 }
 
 function removeRow(button) {
-    let row = button.closest("tr");
-    row.remove();
+    button.closest("tr").remove();
     calculateTotal();
 }
 
-
-// Add first row automatically
+function validateAndSubmit() {
+    if (!document.getElementById("client_id").value) {
+        alert("Please select a client from the list");
+        return false;
+    }
+    if (document.querySelectorAll("#items-table tr").length <= 1) {
+        alert("Please add at least one item");
+        return false;
+    }
+    calculateTotal();
+    return true;
+}
 addRow();
 </script>
-
 {% endblock %}

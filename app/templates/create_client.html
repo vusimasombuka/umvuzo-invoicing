@@ -1,23 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-
 <h2>Create Client</h2>
-
 <form method="post">
-    <input name="name" placeholder="Client Name" required><br><br>
-    <input name="email" placeholder="Email"><br><br>
-    <input name="phone" placeholder="Phone"><br><br>
-    
-<h3>Billing Information</h3>
-
-    <input type="text" name="billing_name" placeholder="Billing Name"><br><br>
-    <input type="email" name="billing_email" placeholder="Billing Email"><br><br>
-    <input type="text" name="billing_address" placeholder="Billing Address"><br><br>
-    <input type="text" name="vat_number" placeholder="VAT Number"><br><br>
-    <input type="text" name="tax_number" placeholder="Tax Number"><br><br>
-    <input type="text" name="payment_terms" placeholder="Payment Terms (e.g. 30 days)"><br><br>
-    <button type="submit">Save Client</button><br><br>
-
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Client Name *</label><br>
+    <input name="name" placeholder="Client Name" required style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Email</label><br>
+    <input name="email" type="email" placeholder="Email" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Phone</label><br>
+    <input name="phone" placeholder="Phone" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <h3>Billing Information</h3>
+    <label>Billing Name</label><br>
+    <input type="text" name="billing_name" placeholder="Billing Name" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Billing Email</label><br>
+    <input type="email" name="billing_email" placeholder="Billing Email" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Billing Address</label><br>
+    <input type="text" name="billing_address" placeholder="Billing Address" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>VAT Number</label><br>
+    <input type="text" name="vat_number" placeholder="VAT Number" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Tax Number</label><br>
+    <input type="text" name="tax_number" placeholder="Tax Number" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <label>Payment Terms</label><br>
+    <input type="text" name="payment_terms" placeholder="Payment Terms (e.g. 30 days)" style="width:100%; padding:8px; margin:5px 0;"><br><br>
+    <button type="submit" style="background:#047857; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer;">Save Client</button>
 </form>
-
 {% endblock %}
