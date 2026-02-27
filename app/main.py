@@ -139,6 +139,14 @@ def login_user(
     
     return RedirectResponse("/dashboard", status_code=303)
 
+
+@app.get("/", response_class=HTMLResponse)
+def root_redirect(request: Request):
+    """Redirect root URL to login page"""
+    if request.session.get("user_id"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return RedirectResponse("/login", status_code=302)
+
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
