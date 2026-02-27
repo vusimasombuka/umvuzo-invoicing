@@ -165,19 +165,17 @@
     </div>
 
     <div class="nav-links">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/quotes-page">Quotes</a>
-        <a href="/invoices-page">Invoices</a>
-        <a href="/clients-page">Clients</a>
-        <a href="/services">Pricing</a>
-        <a href="/clients/create" class="create-btn">+ New Client</a>
-        <a href="/quotes/create" class="create-btn">+ New Quote</a>
-        {% if current_user and current_user.role.value == 'admin' %}
-        <a href="/users/create">Create User</a>
-        {% endif %}
-        <a href="/change-password">Password</a>
-        <a href="/logout">Logout</a>
-    </div>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/quotes-page">Quotes</a>
+    <a href="/invoices-page">Invoices</a>
+    <a href="/clients-page">Clients</a>
+    <a href="/services">Pricing</a>
+    {% if current_user and current_user.role.value == 'admin' %}
+    <a href="/users">Users</a>
+    {% endif %}
+    <a href="/change-password">Password</a>
+    <a href="/logout">Logout</a>
+</div>
 </div>
 
 <div class="container">

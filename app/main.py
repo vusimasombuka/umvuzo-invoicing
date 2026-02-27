@@ -945,3 +945,123 @@ def seed_services():
 async def startup_event():
     create_default_admin()
     seed_services()
+
+
+
+    # =========================
+# USER MANAGEMENT (Admin Only) - Additional Routes
+# =========================
+
+@app.get("/users", response_class=HTMLResponse)
+def list_users(request: Request, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """View all users - Admin only"""
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return templates.TemplateResponse("users.html", {
+        "request": request,
+        "users": users,
+        "current_user": current_user
+    })
+
+@app.get("/users/{user_id}/edit", response_class=HTMLResponse)
+def edit_user_page(user_id: int, request: Request, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Edit user form - Admin only"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        request.session["flash"] = "User not found."
+        return RedirectResponse("/users", status_code=303)
+    
+    return templates.TemplateResponse("edit_user.html", {
+        "request": request,
+        "user": user,
+        "csrf_token": request.session.get("csrf_token"),
+        "current_user": current_user
+    })
+
+@app.post("/users/{user_id}/edit")
+def update_user(
+    user_id: int,
+    request: Request,
+    role: str = Form(...),
+    is_active: str = Form(None),  # Checkbox returns None if unchecked
+    new_password: str = Form(None),  # Optional password reset
+    csrf_token: str = Form(...),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Update user details - Admin only"""
+    if csrf_token != request.session.get("csrf_token"):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        request.session["flash"] = "User not found."
+        return RedirectResponse("/users", status_code=303)
+    
+    # Prevent deactivating yourself
+    if user.id == current_user.id and is_active is None:
+        request.session["flash"] = "You cannot deactivate your own account."
+        return RedirectResponse(f"/users/{user_id}/edit", status_code=303)
+    
+    # Update role
+    user.role = UserRole.ADMIN if role == "admin" else UserRole.USER
+    
+    # Update active status
+    user.is_active = is_active == "on"
+    
+    # Update password if provided
+    if new_password and len(new_password) >= 8:
+        user.password = hash_password(new_password)
+        log_audit_action(db, current_user.id, "user_password_reset", "user", user.id, 
+                        f"Password reset for {user.username}", request.client.host)
+    
+    db.commit()
+    
+    log_audit_action(db, current_user.id, "user_updated", "user", user.id, 
+                    f"Updated {user.username} - Role: {role}, Active: {user.is_active}", request.client.host)
+    
+    request.session["flash"] = f"User '{user.username}' updated successfully."
+    return RedirectResponse("/users", status_code=303)
+
+@app.get("/users/{user_id}/delete")
+def delete_user(user_id: int, request: Request, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Delete user - Admin only with safety checks"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        request.session["flash"] = "User not found."
+        return RedirectResponse("/users", status_code=303)
+    
+    # Prevent self-deletion
+    if user.id == current_user.id:
+        request.session["flash"] = "You cannot delete your own account."
+        return RedirectResponse("/users", status_code=303)
+    
+    # Prevent deleting last admin
+    if user.role == UserRole.ADMIN:
+        admin_count = db.query(User).filter(User.role == UserRole.ADMIN, User.is_active == True).count()
+        if admin_count <= 1:
+            request.session["flash"] = "Cannot delete the last active administrator."
+            return RedirectResponse("/users", status_code=303)
+    
+    # Check if user has created any clients, quotes, or invoices
+    clients_count = db.query(Client).filter(Client.created_by_id == user.id).count()
+    quotes_count = db.query(Quote).filter(Quote.created_by_id == user.id).count()
+    invoices_count = db.query(Invoice).filter(Invoice.created_by_id == user.id).count()
+    
+    if clients_count > 0 or quotes_count > 0 or invoices_count > 0:
+        # Soft delete - just deactivate instead of hard delete
+        user.is_active = False
+        db.commit()
+        request.session["flash"] = f"User '{user.username}' has been deactivated (has existing records)."
+        log_audit_action(db, current_user.id, "user_deactivated", "user", user.id, 
+                        f"Deactivated {user.username} (has records)", request.client.host)
+    else:
+        # Hard delete for users with no records
+        username = user.username
+        db.delete(user)
+        db.commit()
+        request.session["flash"] = f"User '{username}' has been permanently deleted."
+        log_audit_action(db, current_user.id, "user_deleted", "user", user_id, 
+                        f"Deleted {username}", request.client.host)
+    
+    return RedirectResponse("/users", status_code=303)

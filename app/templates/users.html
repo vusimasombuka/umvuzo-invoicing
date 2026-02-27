@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}User Management | Umvuzo Media{% endblock %}
+
+{% block content %}
+<h2>User Management</h2>
+
+<div style="margin-bottom: 20px;">
+    <a href="/users/create" style="background:#1e3a8a; color:white; padding:10px 20px; border-radius:6px; text-decoration:none; display:inline-block; font-weight:bold;">
+        + Create New User
+    </a>
+</div>
+
+<div class="table-wrapper">
+    <table style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background:#49bef5; color:#222;">
+                <th style="padding:12px; text-align:left;">Username</th>
+                <th style="padding:12px; text-align:left;">Role</th>
+                <th style="padding:12px; text-align:center;">Status</th>
+                <th style="padding:12px; text-align:left;">Last Login</th>
+                <th style="padding:12px; text-align:left;">Created</th>
+                <th style="padding:12px; text-align:center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr style="border-bottom:1px solid #ddd; {% if not user.is_active %}background:#f8f9fa; color:#6c757d;{% endif %}">
+                <td style="padding:12px;">
+                    {{ user.username }}
+                    {% if user.id == current_user.id %}
+                        <span style="background:#28a745; color:white; font-size:11px; padding:2px 6px; border-radius:4px; margin-left:5px;">You</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px;">
+                    {% if user.role.value == 'admin' %}
+                        <span style="background:#dc3545; color:white; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:bold;">ADMIN</span>
+                    {% else %}
+                        <span style="background:#6c757d; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">User</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px; text-align:center;">
+                    {% if user.is_active %}
+                        <span style="color:#28a745; font-weight:bold;">● Active</span>
+                    {% else %}
+                        <span style="color:#dc3545;">● Inactive</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px;">
+                    {% if user.last_login %}
+                        {{ user.last_login.strftime("%Y-%m-%d %H:%M") }}
+                    {% else %}
+                        <span style="color:#999; font-style:italic;">Never</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px;">
+                    {{ user.created_at.strftime("%Y-%m-%d") }}
+                </td>
+                <td style="padding:12px; text-align:center;">
+                    <div class="actions" style="display:flex; gap:6px; justify-content:center;">
+                        <a href="/users/{{ user.id }}/edit" 
+                           style="background:#f59e0b; color:white; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">
+                            Edit
+                        </a>
+                        
+                        {% if user.id != current_user.id %}
+                            <a href="/users/{{ user.id }}/delete" 
+                               onclick="return confirm('Are you sure you want to delete/deactivate this user?\n\nThis action cannot be undone.');"
+                               style="background:#dc3545; color:white; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">
+                                Delete
+                            </a>
+                        {% else %}
+                            <span style="background:#e9ecef; color:#6c757d; padding:6px 12px; border-radius:4px; font-size:12px; cursor:not-allowed;">
+                                Delete
+                            </span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if not users %}
+        <p style="text-align:center; color:#666; padding:40px;">No users found.</p>
+    {% endif %}
+</div>
+
+<div style="margin-top:20px; padding:15px; background:#f8f9fa; border-radius:6px; font-size:13px; color:#666;">
+    <strong>Note:</strong> Users with existing records (clients, quotes, or invoices) cannot be permanently deleted and will be deactivated instead. 
+    Inactive users cannot log in but their data remains intact.
+</div>
+{% endblock %}

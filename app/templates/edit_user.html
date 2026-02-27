@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Edit User | Umvuzo Media{% endblock %}
+
+{% block content %}
+<div style="max-width:600px; margin:0 auto; background:white; padding:30px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+    <h2 style="margin-top:0; color:#333;">Edit User</h2>
+    
+    <div style="background:#f8f9fa; padding:15px; border-radius:6px; margin-bottom:20px;">
+        <div style="margin-bottom:5px;"><strong>Username:</strong> {{ user.username }}</div>
+        <div style="font-size:13px; color:#666;">Created: {{ user.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+        {% if user.last_login %}
+            <div style="font-size:13px; color:#666;">Last Login: {{ user.last_login.strftime("%Y-%m-%d %H:%M") }}</div>
+        {% endif %}
+    </div>
+
+    <form method="post" action="/users/{{ user.id }}/edit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <div style="margin-bottom:20px;">
+            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#333;">User Role</label>
+            <select name="role" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
+                <option value="user" {% if user.role.value == 'user' %}selected{% endif %}>Standard User</option>
+                <option value="admin" {% if user.role.value == 'admin' %}selected{% endif %}>Administrator</option>
+            </select>
+            <div style="font-size:12px; color:#666; margin-top:5px;">
+                Administrators can create users, view all data, and manage system settings.
+            </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} 
+                       {% if user.id == current_user.id %}disabled{% endif %}
+                       style="width:18px; height:18px;">
+                <span style="font-weight:bold; color:#333;">Account Active</span>
+            </label>
+            {% if user.id == current_user.id %}
+                <div style="font-size:12px; color:#dc3545; margin-top:5px; margin-left:26px;">
+                    You cannot deactivate your own account.
+                </div>
+            {% else %}
+                <div style="font-size:12px; color:#666; margin-top:5px; margin-left:26px;">
+                    Inactive users cannot log in.
+                </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom:20px; padding:20px; background:#fff3cd; border:1px solid #ffeaa7; border-radius:6px;">
+            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#856404;">
+                Reset Password (Optional)
+            </label>
+            <input type="password" name="new_password" placeholder="Leave blank to keep current password" minlength="8"
+                   style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
+            <div style="font-size:12px; color:#856404; margin-top:5px;">
+                Minimum 8 characters. User will need to use the new password on next login.
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:30px;">
+            <button type="submit" 
+                    style="flex:1; padding:12px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:14px;">
+                Save Changes
+            </button>
+            <a href="/users" 
+               style="flex:1; padding:12px; background:#6c757d; color:white; text-decoration:none; border-radius:4px; text-align:center; font-weight:bold; font-size:14px; display:flex; align-items:center; justify-content:center;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
