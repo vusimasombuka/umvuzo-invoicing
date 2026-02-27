@@ -7,6 +7,7 @@ def send_email(to_email, subject, body, pdf_path=None):
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # Default 587 for Xneelo
     EMAIL_USER = os.getenv("EMAIL_USER")
     EMAIL_PASS = os.getenv("EMAIL_PASS")
+    FROM_EMAIL = os.getenv("FROM_EMAIL", "info@umvuzomedia.co.za")
 
     msg = EmailMessage()
     msg["From"] = EMAIL_USER
