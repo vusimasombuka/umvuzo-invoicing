@@ -590,9 +590,6 @@ def create_quote(
         request.session["flash"] = "Invalid data."
         return RedirectResponse("/quotes/create", status_code=303)
     
-    last = db.query(func.max(Quote.quote_number)).filter(
-    Quote.client_id == client_id
-    ).with_for_update().scalar()
     try:
         last = db.query(func.max(Quote.quote_number)).filter(Quote.client_id == client_id).scalar()
         next_num = 1 if not last else last + 1
