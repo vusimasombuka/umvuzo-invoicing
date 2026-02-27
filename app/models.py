@@ -106,7 +106,7 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
 
 class Service(Base):
-    __tablename__ = "services"
+    __tablename__ = "billable_services"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
