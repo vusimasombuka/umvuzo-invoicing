@@ -390,10 +390,7 @@ def change_password(
 
 @app.get("/clients-page", response_class=HTMLResponse)
 def clients_page(request: Request, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    if current_user.role == UserRole.ADMIN:
-        clients = db.query(Client).all()
-    else:
-        clients = db.query(Client).filter(Client.created_by_id == current_user.id).all()
+    clients = db.query(Client).all()  # Changed: Everyone sees all clients
     
     return templates.TemplateResponse("clients.html", {
         "request": request, 
@@ -564,11 +561,7 @@ def quotes_page(request: Request, current_user: User = Depends(require_auth), db
 
 @app.get("/quotes/create", response_class=HTMLResponse)
 def create_quote_form(request: Request, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    if current_user.role == UserRole.ADMIN:
-        clients = db.query(Client).all()
-    else:
-        clients = db.query(Client).filter(Client.created_by_id == current_user.id).all()
-    
+    clients = db.query(Client).all()  # Changed: Everyone sees all clients
     services = db.query(Service).filter(Service.is_active == True).order_by(Service.name).all()
     
     return templates.TemplateResponse("create_quote.html", {
