@@ -7,6 +7,7 @@
 <div class="table-wrapper">
 <table style="width:100%; border-collapse: collapse;">
     <tr style="background:#49bef5; color:#222;">
+        <th style="padding:10px;">Client Code</th>
         <th style="padding:10px;">Name</th>
         <th style="padding:10px;">Email</th>
         <th style="padding:10px;">Phone</th>
@@ -15,18 +16,28 @@
 
     {% for client in clients %}
     <tr style="border-bottom:1px solid #ddd;">
+        <td style="padding:10px; font-weight:bold;">{{ client.client_code }}</td>
         <td style="padding:10px;">{{ client.name }}</td>
         <td style="padding:10px;">{{ client.email }}</td>
         <td style="padding:10px;">{{ client.phone }}</td>
         <td style="padding:10px;">
-            <a href="/clients/{{ client.id }}/edit"
-               style="background:#1e3a8a; color:white; padding:6px 12px; border-radius:6px; text-decoration:none;">
-               Edit
-            </a>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <a href="/clients/{{ client.id }}" 
+                   style="background:#17a2b8; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px;">
+                   View History
+                </a>
+                <a href="/clients/{{ client.id }}/edit"
+                   style="background:#1e3a8a; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px;">
+                   Edit
+                </a>
+            </div>
         </td>
     </tr>
     {% endfor %}
 </table>
 
+{% if not clients %}
+    <p style="text-align:center; color:#666; padding:20px;">No clients found.</p>
+{% endif %}
 </div>
 {% endblock %}

@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% block title %}Pricing | Umvuzo Invoicing{% endblock %}
+
+{% block content %}
+<style>
+.pricing-hero {
+    text-align: center;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #49bef5 0%, #1ea7e1 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 40px;
+}
+.pricing-hero h1 {
+    margin: 0 0 10px 0;
+    font-size: 36px;
+}
+.pricing-hero p {
+    margin: 0;
+    font-size: 18px;
+    opacity: 0.95;
+}
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+.pricing-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.pricing-card.popular {
+    border: 3px solid #49bef5;
+    transform: scale(1.05);
+}
+.popular-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #49bef5;
+    color: white;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.pricing-card h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 24px;
+}
+.price {
+    font-size: 48px;
+    font-weight: bold;
+    color: #49bef5;
+    margin: 20px 0;
+}
+.price span {
+    font-size: 16px;
+    color: #666;
+    font-weight: normal;
+}
+.features {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    flex-grow: 1;
+}
+.features li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    color: #555;
+}
+.features li:before {
+    content: "✓";
+    color: #28a745;
+    font-weight: bold;
+    margin-right: 10px;
+}
+.features li.exclude {
+    color: #999;
+    text-decoration: line-through;
+}
+.features li.exclude:before {
+    content: "✗";
+    color: #dc3545;
+}
+.cta-button {
+    display: block;
+    text-align: center;
+    padding: 15px;
+    background: #49bef5;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    margin-top: 20px;
+    transition: background 0.3s;
+}
+.cta-button:hover {
+    background: #1ea7e1;
+}
+.pricing-card.popular .cta-button {
+    background: #28a745;
+}
+.pricing-card.popular .cta-button:hover {
+    background: #218838;
+}
+.compare-section {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    margin-top: 40px;
+}
+.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+.compare-table th,
+.compare-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+.compare-table th {
+    background: #f8f9fa;
+    font-weight: bold;
+    color: #333;
+}
+.compare-table td.check {
+    color: #28a745;
+    font-weight: bold;
+}
+.compare-table td.cross {
+    color: #dc3545;
+}
+.faq-section {
+    margin-top: 60px;
+    padding: 40px 0;
+}
+.faq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+.faq-item {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.faq-item h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+.faq-item p {
+    margin: 0;
+    color: #666;
+    line-height: 1.6;
+}
+.industries-section {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    margin: 40px 0;
+    text-align: center;
+}
+.industry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+.industry-item {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-weight: bold;
+    color: #333;
+}
+</style>
+
+<div class="pricing-hero">
+    <h1>Professional Invoicing for South African Businesses</h1>
+    <p>No setup fees. No hidden costs. Cancel anytime.<br>Built in SA, priced in Rands, supported locally.</p>
+</div>
+
+<div class="pricing-grid">
+    <!-- Starter Plan -->
+    <div class="pricing-card">
+        <h3>Starter</h3>
+        <div class="price">R499<span>/month</span></div>
+        <p style="color: #666; margin-bottom: 20px;">Perfect for freelancers and sole proprietors</p>
+        
+        <ul class="features">
+            <li>1 User</li>
+            <li>Up to 50 Clients</li>
+            <li>Unlimited Quotes</li>
+            <li>Unlimited Invoices</li>
+            <li>PDF Export</li>
+            <li>Email Integration</li>
+            <li>Custom Service Categories</li>
+            <li class="exclude">Multi-user Access</li>
+            <li class="exclude">Excel Export</li>
+        </ul>
+        
+        <a href="/register?plan=starter" class="cta-button">Get Started</a>
+    </div>
+
+    <!-- Professional Plan (Popular) -->
+    <div class="pricing-card popular">
+        <div class="popular-badge">Most Popular</div>
+        <h3>Professional</h3>
+        <div class="price">R999<span>/month</span></div>
+        <p style="color: #666; margin-bottom: 20px;">For growing businesses with teams</p>
+        
+        <ul class="features">
+            <li>5 Users</li>
+            <li>Unlimited Clients</li>
+            <li>Unlimited Quotes & Invoices</li>
+            <li>PDF & Excel Export</li>
+            <li>Email Integration</li>
+            <li>Client Portal Access</li>
+            <li>Custom Service Categories</li>
+            <li>Priority Email Support</li>
+            <li class="exclude">White-label Option</li>
+        </ul>
+        
+        <a href="/register?plan=professional" class="cta-button">Start Free Trial</a>
+        <p style="text-align: center; margin-top: 10px; font-size: 13px; color: #28a745;">14 days free • No credit card required</p>
+    </div>
+
+    <!-- Enterprise Plan -->
+    <div class="pricing-card">
+        <h3>Enterprise</h3>
+        <div class="price">R2,499<span>/month</span></div>
+        <p style="color: #666; margin-bottom: 20px;">For established companies and agencies</p>
+        
+        <ul class="features">
+            <li>Unlimited Users</li>
+            <li>Unlimited Everything</li>
+            <li>White-label / Custom Branding</li>
+            <li>API Access</li>
+            <li>Advanced Reporting</li>
+            <li>Dedicated Account Manager</li>
+            <li>Phone Support</li>
+            <li>Custom Integrations</li>
+            <li>SLA Guarantee</li>
+        </ul>
+        
+        <a href="/contact?plan=enterprise" class="cta-button">Contact Sales</a>
+    </div>
+</div>
+
+<!-- Annual Discount Banner -->
+<div style="background: #f8f9fa; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 40px; border-left: 4px solid #28a745;">
+    <h3 style="margin: 0 0 10px 0; color: #28a745;">🎉 Save 2 Months with Annual Billing</h3>
+    <p style="margin: 0; color: #666;">Pay for 10 months, get 12. Professional plan drops to <strong>R8,325/year</strong> (from R11,988)</p>
+</div>
+
+<!-- Industries Section -->
+<div class="industries-section">
+    <h2>Trusted by Businesses Across South Africa</h2>
+    <p style="color: #666; max-width: 600px; margin: 0 auto;">Whether you're a consultant, tradesperson, creative agency, or professional services firm – Umvuzo adapts to your business.</p>
+    
+    <div class="industry-grid">
+        <div class="industry-item">🔧 Contractors</div>
+        <div class="industry-item">💼 Consultants</div>
+        <div class="industry-item">🎨 Creative Agencies</div>
+        <div class="industry-item">🔌 Electricians</div>
+        <div class="industry-item">🚗 Auto Services</div>
+        <div class="industry-item">🏠 Property Services</div>
+        <div class="industry-item">📱 IT Services</div>
+        <div class="industry-item">⚖️ Legal & Accounting</div>
+    </div>
+</div>
+
+<!-- Comparison Table -->
+<div class="compare-section">
+    <h2 style="text-align: center; margin-bottom: 10px;">Compare Plans</h2>
+    <p style="text-align: center; color: #666; margin-bottom: 30px;">All plans include VAT invoicing, quote-to-invoice conversion, and mobile-responsive design</p>
+    
+    <table class="compare-table">
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>Starter</th>
+                <th>Professional</th>
+                <th>Enterprise</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Users</td>
+                <td>1</td>
+                <td>5</td>
+                <td>Unlimited</td>
+            </tr>
+            <tr>
+                <td>Clients</td>
+                <td>50</td>
+                <td>Unlimited</td>
+                <td>Unlimited</td>
+            </tr>
+            <tr>
+                <td>Quotes & Invoices</td>
+                <td class="check">✓ Unlimited</td>
+                <td class="check">✓ Unlimited</td>
+                <td class="check">✓ Unlimited</td>
+            </tr>
+            <tr>
+                <td>Custom Service Catalog</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+            </tr>
+            <tr>
+                <td>PDF Export</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+            </tr>
+            <tr>
+                <td>Excel Export</td>
+                <td class="cross">✗</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+            </tr>
+            <tr>
+                <td>Custom Branding</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+                <td class="check">✓</td>
+            </tr>
+            <tr>
+                <td>API Access</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+                <td class="check">✓</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Why Choose Us -->
+<div style="margin-top: 60px;">
+    <h2 style="text-align: center; margin-bottom: 30px;">Why South African Businesses Choose Us</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;">
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🇿🇦</div>
+            <h4>Local Support</h4>
+            <p style="color: #666;">Based in Kempton Park. We understand SA business culture and VAT requirements.</p>
+        </div>
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">💰</div>
+            <h4>No Forex Risk</h4>
+            <p style="color: #666;">Priced in Rands. Your costs don't fluctuate with the dollar exchange rate.</p>
+        </div>
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+            <h4>Data Stays in SA</h4>
+            <p style="color: #666;">Hosted locally. POPIA compliant. Your client data never leaves the country.</p>
+        </div>
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">⚡</div>
+            <h4>Works for Any Industry</h4>
+            <p style="color: #666;">Customize your service catalog. From construction to consulting – we adapt to you.</p>
+        </div>
+    </div>
+</div>
+
+<!-- FAQ Section -->
+<div class="faq-section">
+    <h2 style="text-align: center;">Frequently Asked Questions</h2>
+    <div class="faq-grid">
+        <div class="faq-item">
+            <h4>Can I import my existing clients?</h4>
+            <p>Yes! We provide a free Excel template for bulk import. Our team can also assist with migration from QuickBooks, Xero, or spreadsheets at no extra cost.</p>
+        </div>
+        <div class="faq-item">
+            <h4>Can I customize it for my specific industry?</h4>
+            <p>Absolutely. You can create your own service categories, products, and pricing. Whether you're an electrician, consultant, or creative agency – the system adapts to your offerings.</p>
+        </div>
+        <div class="faq-item">
+            <h4>Do I need a credit card to start?</h4>
+            <p>No. Professional and Enterprise plans include a 14-day free trial. Starter plans are pay-as-you-go with EFT or debit order.</p>
+        </div>
+        <div class="faq-item">
+            <h4>Is my data safe?</h4>
+            <p>Absolutely. We use bank-level encryption, daily backups, and comply with POPIA. Your data is hosted on South African servers.</p>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div style="background: #2c3e50; color: white; padding: 60px 40px; border-radius: 12px; text-align: center; margin-top: 60px;">
+    <h2 style="margin: 0 0 20px 0; font-size: 32px;">Ready to streamline your invoicing?</h2>
+    <p style="font-size: 18px; margin-bottom: 30px; opacity: 0.9;">Join 50+ South African businesses already using Umvuzo Invoicing</p>
+    <a href="/register" style="display: inline-block; background: #49bef5; color: white; padding: 15px 40px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px;">Start Your Free Trial</a>
+    <p style="margin-top: 15px; font-size: 14px; opacity: 0.7;">No credit card required • Setup takes 5 minutes • Works for any industry</p>
+</div>
+
+{% endblock %}

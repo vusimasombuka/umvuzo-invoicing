@@ -1,38 +1,178 @@
 {% extends "base.html" %}
+{% block title %}{{ client.name }} | Client History{% endblock %}
+
 {% block content %}
+<!-- EXPORT BUTTONS - ADD THIS SECTION AT THE TOP -->
+<div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <a href="/clients-page" style="color:#666; text-decoration:none;">← Back to Clients</a>
+    <div style="display:flex; gap:10px;">
+        <a href="/clients/{{ client.id }}/export/pdf" 
+           style="background:#dc3545; color:white; padding:8px 16px; border-radius:6px; text-decoration:none; font-weight:bold; display:flex; align-items:center; gap:5px;">
+            📄 Export PDF
+        </a>
+        <a href="/clients/{{ client.id }}/export/excel" 
+           style="background:#28a745; color:white; padding:8px 16px; border-radius:6px; text-decoration:none; font-weight:bold; display:flex; align-items:center; gap:5px;">
+            📊 Export Excel
+        </a>
+    </div>
+</div>
 
-<h2>{{ client.name }} - History</h2>
+<!-- CLIENT INFO CARD -->
+<div style="background:white; padding:25px; border-radius:8px; margin-bottom:25px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:20px;">
+        <div>
+            <h2 style="margin:0 0 10px 0; color:#333;">{{ client.name }}</h2>
+            <span style="background:#49bef5; color:white; padding:4px 12px; border-radius:12px; font-size:14px; font-weight:bold;">
+                {{ client.client_code }}
+            </span>
+            
+            <div style="margin-top:15px; color:#666; line-height:1.6;">
+                {% if client.email %}<div>📧 {{ client.email }}</div>{% endif %}
+                {% if client.phone %}<div>📞 {{ client.phone }}</div>{% endif %}
+                {% if client.address %}<div>📍 {{ client.address }}</div>{% endif %}
+            </div>
+        </div>
+        
+        {% if client.billing_name or client.billing_email or client.vat_number %}
+        <div style="background:#f8f9fa; padding:15px; border-radius:6px; min-width:250px;">
+            <h4 style="margin:0 0 10px 0; color:#333; font-size:14px;">Billing Details</h4>
+            {% if client.billing_name %}<div style="font-size:13px; color:#666;"><strong>Bill To:</strong> {{ client.billing_name }}</div>{% endif %}
+            {% if client.billing_email %}<div style="font-size:13px; color:#666;">{{ client.billing_email }}</div>{% endif %}
+            {% if client.billing_address %}<div style="font-size:13px; color:#666; margin-top:5px;">{{ client.billing_address }}</div>{% endif %}
+            {% if client.vat_number %}<div style="font-size:13px; color:#666; margin-top:5px;"><strong>VAT:</strong> {{ client.vat_number }}</div>{% endif %}
+            {% if client.tax_number %}<div style="font-size:13px; color:#666;"><strong>Tax:</strong> {{ client.tax_number }}</div>{% endif %}
+            {% if client.payment_terms %}<div style="font-size:13px; color:#666; margin-top:5px;"><strong>Terms:</strong> {{ client.payment_terms }}</div>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
 
-<h3>Quotes</h3>
-<table>
-<tr>
-    <th>Quote #</th>
-    <th>Total</th>
-    <th>Status</th>
-</tr>
-{% for q in quotes %}
-<tr>
-    <td>Q-{{ "%04d"|format(q.quote_number) }}</td>
-    <td>R {{ "%.2f"|format(q.total) }}</td>
-    <td>{{ q.status }}</td>
-</tr>
-{% endfor %}
-</table>
+<!-- QUOTES SECTION -->
+<h3 style="color:#333; margin-bottom:15px;">
+    Quotes History 
+    <span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:12px; font-size:14px;">{{ quotes|length }}</span>
+</h3>
 
-<h3>Invoices</h3>
-<table>
-<tr>
-    <th>Invoice #</th>
-    <th>Total</th>
-    <th>Status</th>
-</tr>
-{% for i in invoices %}
-<tr>
-    <td>INV-{{ "%04d"|format(i.invoice_number) }}</td>
-    <td>R {{ "%.2f"|format(i.total) }}</td>
-    <td>{% if i.paid %}Paid{% else %}Unpaid{% endif %}</td>
-</tr>
-{% endfor %}
-</table>
+<div class="table-wrapper" style="margin-bottom:30px;">
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="background:#f59e0b; color:rgb(8, 8, 8);">
+                <th style="padding:12px; text-align:left;">Quote #</th>
+                <th style="padding:12px; text-align:left;">Date</th>
+                <th style="padding:12px; text-align:right;">Amount</th>
+                <th style="padding:12px; text-align:center;">Status</th>
+                <th style="padding:12px; text-align:center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for quote in quotes %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:12px; font-weight:bold;">Q-{{ "%04d"|format(quote.quote_number) }}</td>
+                <td style="padding:12px; color:#666;">{{ quote.created_at.strftime("%d %b %Y") }}</td>
+                <td style="padding:12px; text-align:right; font-weight:bold;">R {{ "%.2f"|format(quote.total) }}</td>
+                <td style="padding:12px; text-align:center;">
+                    {% if quote.status == "Draft" %}
+                        <span style="background:#6c757d; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">Draft</span>
+                    {% elif quote.status == "Sent" %}
+                        <span style="background:#17a2b8; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">Sent</span>
+                    {% elif quote.status == "Approved" %}
+                        <span style="background:#28a745; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">Approved</span>
+                    {% else %}
+                        <span style="background:#dc3545; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">{{ quote.status }}</span>
+                    {% endif %}
+                    
+                    {% if quote.converted %}
+                        <div style="font-size:11px; color:#28a745; margin-top:4px;">✓ Converted</div>
+                    {% endif %}
+                </td>
+                <td style="padding:12px; text-align:center;">
+                    <div style="display:flex; gap:6px; justify-content:center;">
+                        <a href="/quotes/{{ quote.id }}/pdf" style="background:#0a6cff; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:12px;">PDF</a>
+                        <a href="/quotes/{{ quote.id }}/email" style="background:#28a745; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:12px;">Email</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="padding:20px; text-align:center; color:#999;">
+                    No quotes found for this client.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- INVOICES SECTION -->
+<h3 style="color:#333; margin-bottom:15px;">
+    Invoices History 
+    <span style="background:#28a745; color:white; padding:2px 8px; border-radius:12px; font-size:14px;">{{ invoices|length }}</span>
+</h3>
+
+<div class="table-wrapper">
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="background:#28a745; color:white;">
+                <th style="padding:12px; text-align:left;">Invoice #</th>
+                <th style="padding:12px; text-align:left;">Date</th>
+                <th style="padding:12px; text-align:right;">Amount</th>
+                <th style="padding:12px; text-align:center;">Status</th>
+                <th style="padding:12px; text-align:center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invoice in invoices %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:12px; font-weight:bold;">{{ client.client_code[:3].upper() }}-INV-{{ "%04d"|format(invoice.invoice_number) }}</td>
+                <td style="padding:12px; color:#666;">{{ invoice.created_at.strftime("%d %b %Y") }}</td>
+                <td style="padding:12px; text-align:right; font-weight:bold;">R {{ "%.2f"|format(invoice.total) }}</td>
+                <td style="padding:12px; text-align:center;">
+                    {% if invoice.paid %}
+                        <span style="background:#28a745; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">Paid</span>
+                        {% if invoice.paid_at %}
+                            <div style="font-size:11px; color:#28a745; margin-top:4px;">{{ invoice.paid_at.strftime("%d %b %Y") }}</div>
+                        {% endif %}
+                    {% else %}
+                        <span style="background:#dc3545; color:white; padding:4px 10px; border-radius:4px; font-size:12px;">Unpaid</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px; text-align:center;">
+                    <div style="display:flex; gap:6px; justify-content:center;">
+                        <a href="/invoices/{{ invoice.id }}/pdf" style="background:#0a6cff; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:12px;">PDF</a>
+                        <a href="/invoices/{{ invoice.id }}/email" style="background:#28a745; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:12px;">Email</a>
+                        {% if not invoice.paid %}
+                            <a href="/invoices/{{ invoice.id }}/paid" style="background:#dc3545; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:12px;">Mark Paid</a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="padding:20px; text-align:center; color:#999;">
+                    No invoices found for this client.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- SUMMARY STATS -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-top:30px;">
+    <div style="background:white; padding:20px; border-radius:8px; text-align:center; border-left:4px solid #f59e0b;">
+        <div style="font-size:24px; font-weight:bold; color:#333;">{{ quotes|length }}</div>
+        <div style="color:#666; font-size:14px;">Total Quotes</div>
+    </div>
+    <div style="background:white; padding:20px; border-radius:8px; text-align:center; border-left:4px solid #28a745;">
+        <div style="font-size:24px; font-weight:bold; color:#333;">{{ invoices|length }}</div>
+        <div style="color:#666; font-size:14px;">Total Invoices</div>
+    </div>
+    <div style="background:white; padding:20px; border-radius:8px; text-align:center; border-left:4px solid #17a2b8;">
+        <div style="font-size:24px; font-weight:bold; color:#333;">
+            R {{ "%.2f"|format(invoices|selectattr("paid", "equalto", True)|map(attribute="total")|sum) }}
+        </div>
+        <div style="color:#666; font-size:14px;">Total Paid</div>
+    </div>
+</div>
 
 {% endblock %}

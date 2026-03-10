@@ -24,6 +24,17 @@ import secrets
 import re
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from io import BytesIO
+from starlette.responses import StreamingResponse
+from openpyxl.drawing.image import Image as XLImage
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 # SECURITY CONFIG
 EMAIL_REGEX = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
@@ -916,38 +927,11 @@ def create_default_admin():
     finally:
         db.close()
 
-def seed_services():
-    db = SessionLocal()
-    try:
-        if db.query(Service).filter(Service.is_active == True).first():
-            return
-        
-        services = [
-            {"name": "IT Consultation", "description": "General IT consultation", "price": 450.0, "category": "Consulting"},
-            {"name": "Remote Support", "description": "Remote troubleshooting", "price": 350.0, "category": "Support"},
-            {"name": "Onsite Support", "description": "Onsite technical assistance", "price": 650.0, "category": "Support"},
-            {"name": "Router Setup", "description": "Router installation", "price": 650.0, "category": "Networking"},
-            {"name": "Network Cabling", "description": "Structured cabling", "price": 300.0, "category": "Networking"},
-            {"name": "CCTV Installation", "description": "CCTV installation", "price": 1200.0, "category": "Security"},
-            {"name": "Access Control", "description": "Access control setup", "price": 1800.0, "category": "Security"},
-            {"name": "Microsoft 365", "description": "Email setup", "price": 950.0, "category": "Cloud"},
-            {"name": "Server Setup", "description": "Server installation", "price": 2500.0, "category": "Infrastructure"},
-        ]
-        for s in services:
-            db.add(Service(**s, is_active=True))
-        db.commit()
-        print("Services seeded.")
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        db.close()
 
 @app.on_event("startup")
 async def startup_event():
     create_default_admin()
-    seed_services()
-
-
+   
 
     # =========================
 # USER MANAGEMENT (Admin Only) - Additional Routes
@@ -1066,3 +1050,660 @@ def delete_user(user_id: int, request: Request, current_user: User = Depends(req
                         f"Deleted {username}", request.client.host)
     
     return RedirectResponse("/users", status_code=303)
+
+@app.get("/clients/{client_id}/export")
+def export_client_report(client_id: int, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """Export client history to Excel"""
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    if current_user.role != UserRole.ADMIN and client.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get data
+    if current_user.role == UserRole.ADMIN:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id).all()
+    else:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id, Quote.created_by_id == current_user.id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id, Invoice.created_by_id == current_user.id).all()
+    
+    # Create Excel workbook
+    wb = Workbook()
+    
+    # Define styles
+    header_fill = PatternFill(start_color="49BEF5", end_color="49BEF5", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    title_font = Font(bold=True, size=14)
+    money_font = Font(bold=True)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Sheet 1: Client Info
+    ws_info = wb.active
+    ws_info.title = "Client Info"
+    
+    ws_info['A1'] = "Client Report"
+    ws_info['A1'].font = Font(bold=True, size=16)
+    ws_info.merge_cells('A1:B1')
+    
+    info_data = [
+        ("Client Name", client.name),
+        ("Client Code", client.client_code),
+        ("Email", client.email or "N/A"),
+        ("Phone", client.phone or "N/A"),
+        ("Address", client.address or "N/A"),
+        ("Billing Name", client.billing_name or "N/A"),
+        ("Billing Email", client.billing_email or "N/A"),
+        ("VAT Number", client.vat_number or "N/A"),
+        ("Tax Number", client.tax_number or "N/A"),
+        ("Payment Terms", client.payment_terms or "N/A"),
+        ("Created", client.created_at.strftime("%Y-%m-%d") if client.created_at else "N/A")
+    ]
+    
+    for idx, (label, value) in enumerate(info_data, start=3):
+        ws_info[f'A{idx}'] = label
+        ws_info[f'A{idx}'].font = Font(bold=True)
+        ws_info[f'B{idx}'] = value
+    
+    # Adjust column widths
+    ws_info.column_dimensions['A'].width = 20
+    ws_info.column_dimensions['B'].width = 40
+    
+    # Sheet 2: Quotes
+    ws_quotes = wb.create_sheet("Quotes")
+    headers = ["Quote #", "Date", "Total (R)", "Status", "Converted"]
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws_quotes.cell(1, col, header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+    
+    for idx, quote in enumerate(quotes, start=2):
+        ws_quotes.cell(idx, 1, f"Q-{quote.quote_number:04d}").border = border
+        ws_quotes.cell(idx, 2, quote.created_at.strftime("%Y-%m-%d")).border = border
+        ws_quotes.cell(idx, 3, quote.total).border = border
+        ws_quotes.cell(idx, 3).font = money_font
+        ws_quotes.cell(idx, 3).number_format = '"R" #,##0.00'
+        ws_quotes.cell(idx, 4, quote.status).border = border
+        ws_quotes.cell(idx, 5, "Yes" if quote.converted else "No").border = border
+    
+    # Adjust column widths for quotes
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws_quotes.column_dimensions[col].width = 15
+    
+    # Sheet 3: Invoices
+    ws_inv = wb.create_sheet("Invoices")
+    headers = ["Invoice #", "Date", "Total (R)", "Status", "Paid Date"]
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws_inv.cell(1, col, header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+    
+    for idx, inv in enumerate(invoices, start=2):
+        inv_num = f"{client.client_code[:3].upper()}-INV-{inv.invoice_number:04d}"
+        ws_inv.cell(idx, 1, inv_num).border = border
+        ws_inv.cell(idx, 2, inv.created_at.strftime("%Y-%m-%d")).border = border
+        ws_inv.cell(idx, 3, inv.total).border = border
+        ws_inv.cell(idx, 3).font = money_font
+        ws_inv.cell(idx, 3).number_format = '"R" #,##0.00'
+        ws_inv.cell(idx, 4, "Paid" if inv.paid else "Unpaid").border = border
+        paid_date = inv.paid_at.strftime("%Y-%m-%d") if inv.paid and inv.paid_at else "N/A"
+        ws_inv.cell(idx, 5, paid_date).border = border
+    
+    # Adjust column widths for invoices
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws_inv.column_dimensions[col].width = 15
+    
+    # Sheet 4: Summary
+    ws_summary = wb.create_sheet("Summary")
+    
+    total_quotes = len(quotes)
+    total_invoices = len(invoices)
+    total_paid = sum(inv.total for inv in invoices if inv.paid)
+    total_unpaid = sum(inv.total for inv in invoices if not inv.paid)
+    total_quotes_value = sum(q.total for q in quotes)
+    
+    summary_data = [
+        ("Summary Statistics", ""),
+        ("", ""),
+        ("Total Quotes", total_quotes),
+        ("Total Quotes Value", f"R {total_quotes_value:,.2f}"),
+        ("", ""),
+        ("Total Invoices", total_invoices),
+        ("Total Paid", f"R {total_paid:,.2f}"),
+        ("Total Unpaid", f"R {total_unpaid:,.2f}"),
+        ("", ""),
+        ("Conversion Rate", f"{(len([q for q in quotes if q.converted])/total_quotes*100 if total_quotes else 0):.1f}%")
+    ]
+    
+    for idx, (label, value) in enumerate(summary_data, start=1):
+        if label == "Summary Statistics":
+            ws_summary.cell(idx, 1, label).font = title_font
+            ws_summary.merge_cells(f'A{idx}:B{idx}')
+        else:
+            ws_summary.cell(idx, 1, label).font = Font(bold=True) if label else Font()
+            ws_summary.cell(idx, 2, value)
+    
+    ws_summary.column_dimensions['A'].width = 25
+    ws_summary.column_dimensions['B'].width = 20
+    
+    # Save to memory
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"Client_Report_{client.client_code}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.get("/clients/{client_id}/export/excel")
+def export_client_excel(client_id: int, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """Export client history to branded Excel"""
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    if current_user.role != UserRole.ADMIN and client.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if current_user.role == UserRole.ADMIN:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id).all()
+    else:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id, Quote.created_by_id == current_user.id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id, Invoice.created_by_id == current_user.id).all()
+    
+    wb = Workbook()
+    
+    # Styles
+    brand_color = "49BEF5"
+    header_fill = PatternFill(start_color=brand_color, end_color=brand_color, fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    title_font = Font(bold=True, size=16, color="2C3E50")
+    subtitle_font = Font(bold=True, size=12, color="2C3E50")
+    money_font = Font(bold=True, size=11)
+    border = Border(
+        left=Side(style='thin', color="CCCCCC"),
+        right=Side(style='thin', color="CCCCCC"),
+        top=Side(style='thin', color="CCCCCC"),
+        bottom=Side(style='thin', color="CCCCCC")
+    )
+    
+    # Sheet 1: Cover Page
+    ws_cover = wb.active
+    ws_cover.title = "Report Cover"
+    
+    # Try to add logo
+    logo_path = "app/static/logo.png"
+    if os.path.exists(logo_path):
+        img = XLImage(logo_path)
+        img.width = 300
+        img.height = 100
+        ws_cover.add_image(img, 'B2')
+    
+    ws_cover['B8'] = "CLIENT REPORT"
+    ws_cover['B8'].font = Font(bold=True, size=24, color=brand_color)
+    ws_cover['B9'] = client.name
+    ws_cover['B9'].font = Font(bold=True, size=18)
+    ws_cover['B10'] = f"Client Code: {client.client_code}"
+    ws_cover['B10'].font = Font(size=12, color="666666")
+    ws_cover['B11'] = f"Generated: {datetime.now().strftime('%d %B %Y')}"
+    
+    # Company footer on cover
+    ws_cover['B20'] = "Umvuzo Media (Pty) Ltd"
+    ws_cover['B20'].font = Font(bold=True, size=12)
+    ws_cover['B21'] = "4 Veldblom Street, Terenure, Kempton Park, 1619"
+    ws_cover['B22'] = "Tel: +27 61 213 0052 | info@umvuzomedia.co.za | www.umvuzomedia.co.za"
+    ws_cover['B23'] = "Reg: 2012/137462/07"
+    
+    for row in range(20, 24):
+        ws_cover[f'B{row}'].font = Font(size=10, color="666666")
+    
+    # Sheet 2: Client Details
+    ws_info = wb.create_sheet("Client Details")
+    
+    ws_info['A1'] = "CLIENT INFORMATION"
+    ws_info['A1'].font = title_font
+    ws_info.merge_cells('A1:C1')
+    
+    info_rows = [
+        ("Company Name", client.name),
+        ("Client Code", client.client_code),
+        ("Email Address", client.email or "N/A"),
+        ("Phone Number", client.phone or "N/A"),
+        ("Physical Address", client.address or "N/A"),
+        ("", ""),
+        ("BILLING INFORMATION", ""),
+        ("Billing Name", client.billing_name or client.name),
+        ("Billing Email", client.billing_email or client.email or "N/A"),
+        ("Billing Address", client.billing_address or client.address or "N/A"),
+        ("VAT Number", client.vat_number or "N/A"),
+        ("Tax Number", client.tax_number or "N/A"),
+        ("Payment Terms", client.payment_terms or "30 Days")
+    ]
+    
+    for idx, (label, value) in enumerate(info_rows, start=3):
+        if label == "BILLING INFORMATION":
+            ws_info[f'A{idx}'] = label
+            ws_info[f'A{idx}'].font = subtitle_font
+            ws_info.merge_cells(f'A{idx}:C{idx}')
+        else:
+            ws_info[f'A{idx}'] = label
+            ws_info[f'A{idx}'].font = Font(bold=True)
+            ws_info[f'B{idx}'] = value
+            ws_info.merge_cells(f'B{idx}:C{idx}')
+    
+    ws_info.column_dimensions['A'].width = 20
+    ws_info.column_dimensions['B'].width = 35
+    ws_info.column_dimensions['C'].width = 20
+    
+    # Sheet 3: Quotes
+    ws_quotes = wb.create_sheet("Quotes History")
+    
+    ws_quotes['A1'] = "QUOTATION HISTORY"
+    ws_quotes['A1'].font = title_font
+    ws_quotes.merge_cells('A1:E1')
+    
+    headers = ["Quote Number", "Date Created", "Amount (R)", "Status", "Converted to Invoice"]
+    for col, header in enumerate(headers, 1):
+        cell = ws_quotes.cell(3, col, header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    for idx, quote in enumerate(quotes, start=4):
+        ws_quotes.cell(idx, 1, f"Q-{quote.quote_number:04d}").border = border
+        ws_quotes.cell(idx, 1).alignment = Alignment(horizontal='center')
+        
+        ws_quotes.cell(idx, 2, quote.created_at.strftime("%d %b %Y")).border = border
+        ws_quotes.cell(idx, 2).alignment = Alignment(horizontal='center')
+        
+        ws_quotes.cell(idx, 3, quote.total).border = border
+        ws_quotes.cell(idx, 3).font = money_font
+        ws_quotes.cell(idx, 3).number_format = '"R" #,##0.00'
+        ws_quotes.cell(idx, 3).alignment = Alignment(horizontal='right')
+        
+        ws_quotes.cell(idx, 4, quote.status).border = border
+        ws_quotes.cell(idx, 4).alignment = Alignment(horizontal='center')
+        
+        ws_quotes.cell(idx, 5, "Yes ✓" if quote.converted else "No").border = border
+        ws_quotes.cell(idx, 5).alignment = Alignment(horizontal='center')
+        if quote.converted:
+            ws_quotes.cell(idx, 5).font = Font(color="28a745", bold=True)
+    
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws_quotes.column_dimensions[col].width = 18
+    
+    # Sheet 4: Invoices
+    ws_inv = wb.create_sheet("Invoice History")
+    
+    ws_inv['A1'] = "INVOICE HISTORY"
+    ws_inv['A1'].font = title_font
+    ws_inv.merge_cells('A1:E1')
+    
+    headers = ["Invoice Number", "Date Created", "Amount (R)", "Status", "Paid Date"]
+    for col, header in enumerate(headers, 1):
+        cell = ws_inv.cell(3, col, header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    for idx, inv in enumerate(invoices, start=4):
+        inv_num = f"{client.client_code[:3].upper()}-INV-{inv.invoice_number:04d}"
+        ws_inv.cell(idx, 1, inv_num).border = border
+        ws_inv.cell(idx, 1).alignment = Alignment(horizontal='center')
+        
+        ws_inv.cell(idx, 2, inv.created_at.strftime("%d %b %Y")).border = border
+        ws_inv.cell(idx, 2).alignment = Alignment(horizontal='center')
+        
+        ws_inv.cell(idx, 3, inv.total).border = border
+        ws_inv.cell(idx, 3).font = money_font
+        ws_inv.cell(idx, 3).number_format = '"R" #,##0.00'
+        ws_inv.cell(idx, 3).alignment = Alignment(horizontal='right')
+        
+        status_cell = ws_inv.cell(idx, 4, "PAID" if inv.paid else "UNPAID")
+        status_cell.border = border
+        status_cell.alignment = Alignment(horizontal='center')
+        status_cell.font = Font(color="28a745" if inv.paid else "dc3545", bold=True)
+        
+        paid_date = inv.paid_at.strftime("%d %b %Y") if inv.paid and inv.paid_at else "-"
+        ws_inv.cell(idx, 5, paid_date).border = border
+        ws_inv.cell(idx, 5).alignment = Alignment(horizontal='center')
+    
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws_inv.column_dimensions[col].width = 18
+    
+    # Sheet 5: Financial Summary
+    ws_sum = wb.create_sheet("Financial Summary")
+    
+    ws_sum['A1'] = "FINANCIAL SUMMARY"
+    ws_sum['A1'].font = title_font
+    ws_sum.merge_cells('A1:C1')
+    
+    total_quotes = len(quotes)
+    total_quotes_val = sum(q.total for q in quotes)
+    total_invoices = len(invoices)
+    total_paid = sum(inv.total for inv in invoices if inv.paid)
+    total_unpaid = sum(inv.total for inv in invoices if not inv.paid)
+    conversion_rate = (len([q for q in quotes if q.converted])/total_quotes*100) if total_quotes else 0
+    
+    summary_data = [
+        ("Metric", "Value", "Notes"),
+        ("Total Quotes Issued", total_quotes, "Lifetime count"),
+        ("Total Quotes Value", f"R {total_quotes_val:,.2f}", "Potential revenue"),
+        ("", "", ""),
+        ("Total Invoices Generated", total_invoices, "Converted quotes"),
+        ("Total Paid", f"R {total_paid:,.2f}", "Revenue received"),
+        ("Total Outstanding", f"R {total_unpaid:,.2f}", "Revenue pending"),
+        ("", "", ""),
+        ("Quote-to-Invoice Conversion", f"{conversion_rate:.1f}%", "Success rate"),
+        ("Average Quote Value", f"R {(total_quotes_val/total_quotes if total_quotes else 0):,.2f}", "Per quote"),
+        ("Average Invoice Value", f"R {(total_paid/(len([i for i in invoices if i.paid]) or 1)):,.2f}", "Paid invoices only")
+    ]
+    
+    for idx, (metric, value, notes) in enumerate(summary_data, start=3):
+        if idx == 3:  # Header row
+            ws_sum.cell(idx, 1, metric).fill = header_fill
+            ws_sum.cell(idx, 1).font = header_font
+            ws_sum.cell(idx, 2, value).fill = header_fill
+            ws_sum.cell(idx, 2).font = header_font
+            ws_sum.cell(idx, 3, notes).fill = header_fill
+            ws_sum.cell(idx, 3).font = header_font
+        else:
+            ws_sum.cell(idx, 1, metric).font = Font(bold=True) if metric else Font()
+            ws_sum.cell(idx, 2, value).font = money_font if isinstance(value, str) and value.startswith("R") else Font()
+            ws_sum.cell(idx, 3, notes).font = Font(italic=True, color="666666")
+        
+        for col in [1, 2, 3]:
+            ws_sum.cell(idx, col).border = border
+            ws_sum.cell(idx, col).alignment = Alignment(vertical='center')
+    
+    ws_sum.column_dimensions['A'].width = 30
+    ws_sum.column_dimensions['B'].width = 20
+    ws_sum.column_dimensions['C'].width = 25
+    
+    # Add footer to all sheets
+    for ws in [ws_cover, ws_info, ws_quotes, ws_inv, ws_sum]:
+        ws.oddFooter.center.text = "Umvuzo Media (Pty) Ltd | Reg: 2012/137462/07 | info@umvuzomedia.co.za"
+        ws.oddFooter.center.size = 9
+        ws.oddFooter.center.color = "666666"
+    
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"Client_Report_{client.client_code}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@app.get("/clients/{client_id}/export/pdf")
+def export_client_pdf(client_id: int, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """Export client history to branded PDF report"""
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    if current_user.role != UserRole.ADMIN and client.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if current_user.role == UserRole.ADMIN:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id).all()
+    else:
+        quotes = db.query(Quote).filter(Quote.client_id == client_id, Quote.created_by_id == current_user.id).all()
+        invoices = db.query(Invoice).filter(Invoice.client_id == client_id, Invoice.created_by_id == current_user.id).all()
+    
+    # Setup PDF
+    filename = f"Client_Report_{client.client_code}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=A4,
+        rightMargin=0.6*inch,
+        leftMargin=0.6*inch,
+        topMargin=0.8*inch,
+        bottomMargin=0.8*inch
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Colors
+    brand_color = colors.HexColor("#49BEF5")
+    dark_blue = colors.HexColor("#2C3E50")
+    light_gray = colors.HexColor("#F8F9FA")
+    
+    # Title style
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=dark_blue,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Header style
+    header_style = ParagraphStyle(
+        'CustomHeader',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=brand_color,
+        spaceAfter=12,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Normal style
+    normal_style = styles["Normal"]
+    normal_style.fontSize = 10
+    
+    # Logo
+    logo_path = "app/static/logo.png"
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=2*inch, height=1.2*inch)
+        elements.append(logo)
+        elements.append(Spacer(1, 0.2*inch))
+    
+    # Report Title
+    elements.append(Paragraph("CLIENT REPORT", title_style))
+    elements.append(Spacer(1, 0.1*inch))
+    
+    # Client Name
+    elements.append(Paragraph(f"<b>{client.name}</b>", ParagraphStyle(
+        'ClientName',
+        parent=styles['Normal'],
+        fontSize=16,
+        alignment=TA_CENTER,
+        spaceAfter=6
+    )))
+    elements.append(Paragraph(f"Client Code: {client.client_code} | Generated: {datetime.now().strftime('%d %B %Y')}", ParagraphStyle(
+        'SubTitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#666666"),
+        spaceAfter=20
+    )))
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Client Info Section
+    elements.append(Paragraph("CLIENT INFORMATION", header_style))
+    
+    info_data = [
+        ["Company Name:", client.name],
+        ["Email:", client.email or "N/A"],
+        ["Phone:", client.phone or "N/A"],
+        ["Address:", client.address or "N/A"],
+        ["Billing Name:", client.billing_name or client.name],
+        ["Billing Email:", client.billing_email or client.email or "N/A"],
+        ["VAT Number:", client.vat_number or "N/A"],
+        ["Payment Terms:", client.payment_terms or "30 Days"]
+    ]
+    
+    info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BACKGROUND', (0, 0), (-1, -1), light_gray),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#DDDDDD")),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Quotes Section
+    if quotes:
+        elements.append(Paragraph("QUOTATION HISTORY", header_style))
+        
+        quote_data = [["Quote #", "Date", "Amount", "Status", "Converted"]]
+        for q in quotes:
+            quote_data.append([
+                f"Q-{q.quote_number:04d}",
+                q.created_at.strftime("%d %b %Y"),
+                f"R {q.total:,.2f}",
+                q.status,
+                "Yes" if q.converted else "No"
+            ])
+        
+        quote_table = Table(quote_data, colWidths=[1*inch, 1.2*inch, 1.2*inch, 1*inch, 1*inch])
+        quote_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), brand_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('ALIGN', (3, 1), (4, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ]))
+        elements.append(quote_table)
+        elements.append(Spacer(1, 0.2*inch))
+    
+    # Invoices Section
+    if invoices:
+        if quotes:
+            elements.append(Spacer(1, 0.2*inch))
+        
+        elements.append(Paragraph("INVOICE HISTORY", header_style))
+        
+        inv_data = [["Invoice #", "Date", "Amount", "Status", "Paid Date"]]
+        for inv in invoices:
+            inv_num = f"{client.client_code[:3].upper()}-INV-{inv.invoice_number:04d}"
+            paid_date = inv.paid_at.strftime("%d %b %Y") if inv.paid and inv.paid_at else "-"
+            status_color = "green" if inv.paid else "red"
+            
+            inv_data.append([
+                inv_num,
+                inv.created_at.strftime("%d %b %Y"),
+                f"R {inv.total:,.2f}",
+                "PAID" if inv.paid else "UNPAID",
+                paid_date
+            ])
+        
+        inv_table = Table(inv_data, colWidths=[1.2*inch, 1*inch, 1.2*inch, 1*inch, 1*inch])
+        inv_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#28a745")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('ALIGN', (3, 1), (4, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+            ('TEXTCOLOR', (3, 1), (3, -1), colors.HexColor("#28a745"), lambda x, y, z: z[3] == "PAID"),
+            ('TEXTCOLOR', (3, 1), (3, -1), colors.HexColor("#dc3545"), lambda x, y, z: z[3] == "UNPAID"),
+        ]))
+        elements.append(inv_table)
+    
+    # Financial Summary
+    elements.append(Spacer(1, 0.4*inch))
+    elements.append(Paragraph("FINANCIAL SUMMARY", header_style))
+    
+    total_quotes = len(quotes)
+    total_quotes_val = sum(q.total for q in quotes)
+    total_invoices = len(invoices)
+    total_paid = sum(inv.total for inv in invoices if inv.paid)
+    total_unpaid = sum(inv.total for inv in invoices if not inv.paid)
+    
+    summary_data = [
+        ["Total Quotes:", str(total_quotes), f"R {total_quotes_val:,.2f}"],
+        ["Total Invoices:", str(total_invoices), f"R {total_paid + total_unpaid:,.2f}"],
+        ["Total Paid:", "", f"R {total_paid:,.2f}"],
+        ["Total Outstanding:", "", f"R {total_unpaid:,.2f}"]
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[2*inch, 1.5*inch, 2*inch])
+    summary_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('LINEABOVE', (0, 0), (-1, 0), 1.5, brand_color),
+        ('LINEBELOW', (0, -1), (-1, -1), 1.5, brand_color),
+    ]))
+    elements.append(summary_table)
+    
+    # Footer with company info
+    elements.append(Spacer(1, 0.5*inch))
+    footer_text = """
+    <para alignment="center" fontSize="9" textColor="#666666">
+    <b>Umvuzo Media (Pty) Ltd</b><br/>
+    4 Veldblom Street, Terenure, Kempton Park, 1619<br/>
+    Tel: +27 61 213 0052 | info@umvuzomedia.co.za | www.umvuzomedia.co.za<br/>
+    Reg: 2012/137462/07
+    </para>
+    """
+    elements.append(Paragraph(footer_text, styles["Normal"]))
+    
+    doc.build(elements)
+    
+    return FileResponse(filename, media_type="application/pdf", filename=filename)
+
+
+@app.get("/pricing", response_class=HTMLResponse)
+def pricing_page(request: Request):
+    return templates.TemplateResponse("pricing.html", {"request": request})
