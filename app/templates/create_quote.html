@@ -26,7 +26,10 @@
         </table>
     </div>
     <br>
-    <button type="button" onclick="addRow()" style="background:#1e3a8a; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add Item</button>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" onclick="addRow()" style="background:#1e3a8a; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add from Services</button>
+        <button type="button" onclick="addCustomRow()" style="background:#6c757d; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add Custom Item</button>
+    </div>
     <br><br>
     <h3>Total: R <span id="grand-total" style="color:#047857;">0.00</span></h3>
     <input type="hidden" name="items_data" id="items_data">
@@ -51,10 +54,10 @@ document.getElementById("client_input").addEventListener("input", function() {
 function addRow() {
     const table = document.getElementById("items-table");
     const row = table.insertRow();
-    row.insertCell(0).innerHTML = `<select class="service-select" style="width:100%; padding:5px;"><option value="">Select Service</option>{% for service in services %}<option value="{{ service.name }}" data-price="{{ service.price }}" data-description="{{ service.description }}">{{ service.name }} (R {{ "%.2f"|format(service.price) }})</option>{% endfor %}</select>`;
-    row.insertCell(1).innerHTML = `<input type="text" name="description[]" class="description-input" required style="width:100%; padding:5px;">`;
-    row.insertCell(2).innerHTML = `<input type="number" name="unit_cost[]" step="0.01" class="unit-cost" required style="width:100%; padding:5px;">`;
-    row.insertCell(3).innerHTML = `<input type="number" name="quantity[]" value="1" min="1" class="quantity" required style="width:100%; padding:5px;">`;
+    row.insertCell(0).innerHTML = `<select class="service-select" style="width:100%; padding:5px;" onchange="fillService(this)"><option value="">Select Service</option>{% for service in services %}<option value="{{ service.price }}" data-desc="{{ service.description }}">{{ service.name }} (R {{ "%.2f"|format(service.price) }})</option>{% endfor %}</select>`;
+    row.insertCell(1).innerHTML = `<input type="text" class="description-input" required style="width:100%; padding:5px;">`;
+    row.insertCell(2).innerHTML = `<input type="number" step="0.01" class="unit-cost" required style="width:100%; padding:5px;">`;
+    row.insertCell(3).innerHTML = `<input type="number" class="quantity" value="1" min="1" required style="width:100%; padding:5px;">`;
     let amountCell = row.insertCell(4);
     amountCell.innerHTML = `0.00`;
     amountCell.classList.add("amount");
@@ -64,15 +67,35 @@ function addRow() {
     attachEvents(row);
 }
 
-document.addEventListener("change", function(e) {
-    if (e.target.classList.contains("service-select")) {
-        let selected = e.target.options[e.target.selectedIndex];
-        let row = e.target.closest("tr");
-        row.querySelector(".unit-cost").value = selected.getAttribute("data-price") || "";
-        row.querySelector(".description-input").value = selected.getAttribute("data-description") || "";
+function addCustomRow() {
+    const table = document.getElementById("items-table");
+    const row = table.insertRow();
+    // Empty cell for service (shows "Custom" or just "-")
+    row.insertCell(0).innerHTML = `<span style="color:#666; font-style:italic; padding:5px;">Custom</span>`;
+    row.insertCell(1).innerHTML = `<input type="text" class="description-input" placeholder="Enter description (e.g., Transport)" required style="width:100%; padding:5px;">`;
+    row.insertCell(2).innerHTML = `<input type="number" step="0.01" class="unit-cost" placeholder="0.00" required style="width:100%; padding:5px;">`;
+    row.insertCell(3).innerHTML = `<input type="number" class="quantity" value="1" min="1" required style="width:100%; padding:5px;">`;
+    let amountCell = row.insertCell(4);
+    amountCell.innerHTML = `0.00`;
+    amountCell.classList.add("amount");
+    amountCell.style.textAlign = "right";
+    amountCell.style.fontWeight = "bold";
+    row.insertCell(5).innerHTML = `<button type="button" onclick="removeRow(this)" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">X</button>`;
+    attachEvents(row);
+    
+    // Auto-focus the description field for quick entry
+    row.querySelector('.description-input').focus();
+}
+
+function fillService(select) {
+    let selected = select.options[select.selectedIndex];
+    let row = select.closest("tr");
+    if (selected.value) {
+        row.querySelector(".unit-cost").value = selected.value;
+        row.querySelector(".description-input").value = selected.getAttribute("data-desc");
         calculateRow(row);
     }
-});
+}
 
 function calculateRow(row) {
     let unit = parseFloat(row.querySelector(".unit-cost").value) || 0;
@@ -85,7 +108,7 @@ function calculateTotal() {
     let total = 0;
     let items = [];
     document.querySelectorAll("#items-table tr").forEach((row, index) => {
-        if (index === 0) return;
+        if (index === 0) return; // Skip header
         let descInput = row.querySelector(".description-input");
         let unitInput = row.querySelector(".unit-cost");
         let qtyInput = row.querySelector(".quantity");
@@ -100,8 +123,10 @@ function calculateTotal() {
 }
 
 function attachEvents(row) {
-    row.querySelector(".unit-cost").addEventListener("input", () => calculateRow(row));
-    row.querySelector(".quantity").addEventListener("input", () => calculateRow(row));
+    let unitInput = row.querySelector(".unit-cost");
+    let qtyInput = row.querySelector(".quantity");
+    if (unitInput) unitInput.addEventListener("input", () => calculateRow(row));
+    if (qtyInput) qtyInput.addEventListener("input", () => calculateRow(row));
 }
 
 function removeRow(button) {
@@ -121,6 +146,8 @@ function validateAndSubmit() {
     calculateTotal();
     return true;
 }
+
+// Add first row automatically
 addRow();
 </script>
 {% endblock %}

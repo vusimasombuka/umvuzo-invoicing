@@ -1707,3 +1707,57 @@ def export_client_pdf(client_id: int, current_user: User = Depends(require_auth)
 @app.get("/pricing", response_class=HTMLResponse)
 def pricing_page(request: Request):
     return templates.TemplateResponse("pricing.html", {"request": request})
+
+# =========================
+# PREVIEW ROUTES (HTML View)
+# =========================
+
+from datetime import timedelta
+
+@app.get("/quotes/{quote_id}/preview", response_class=HTMLResponse)
+def preview_quote(request: Request, quote_id: int, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    if current_user.role != UserRole.ADMIN and quote.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    client = db.get(Client, quote.client_id)
+    items = db.query(QuoteItem).filter(QuoteItem.quote_id == quote.id).all()
+    
+    # Calculate valid until date
+    valid_until = quote.created_at + timedelta(days=30)
+    
+    return templates.TemplateResponse("quote_preview.html", {
+        "request": request,
+        "quote": quote,
+        "client": client,
+        "items": items,
+        "current_user": current_user,
+        "valid_until": valid_until
+    })
+
+@app.get("/invoices/{invoice_id}/preview", response_class=HTMLResponse)
+def preview_invoice(request: Request, invoice_id: int, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if current_user.role != UserRole.ADMIN and invoice.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    client = db.get(Client, invoice.client_id)
+    items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice.id).all()
+    
+    # Calculate due date
+    due_date = invoice.created_at + timedelta(days=30)
+    
+    return templates.TemplateResponse("invoice_preview.html", {
+        "request": request,
+        "invoice": invoice,
+        "client": client,
+        "items": items,
+        "current_user": current_user,
+        "due_date": due_date
+    })

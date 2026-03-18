@@ -38,6 +38,7 @@ Email sent successfully ✅
                 <td>{{ quote.created_at.strftime("%Y-%m-%d") }}</td>
                 <td>
                     <div class="actions">
+                        <a class="btn preview" href="/quotes/{{ quote.id }}/preview">Preview</a>
                         <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf">PDF</a>
                         <a class="btn email" href="/quotes/{{ quote.id }}/email">Email</a>
 
