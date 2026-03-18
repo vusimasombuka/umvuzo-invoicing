@@ -1,69 +1,180 @@
 {% extends "base.html" %}
-{% block title %}Quotes | Umvuzo Media{% endblock %}
+{% block title %}Quotes by Client | Umvuzo Media{% endblock %}
 
 {% block content %}
-<h2>Quotes</h2>
+<h2>Quotes by Client</h2>
+
+<!-- Controls -->
+<div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <button onclick="expandAll()" style="background:#1e3a8a; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:13px;">
+        ▼ Expand All
+    </button>
+    <button onclick="collapseAll()" style="background:#6c757d; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:13px;">
+        ▶ Collapse All
+    </button>
+    <div style="margin-left: auto; color:#666; font-size:14px;">
+        {{ quotes|length }} total quotes across {{ quotes|map(attribute='client_id')|unique|list|length }} clients
+    </div>
+</div>
+
 {% if request.query_params.get("sent") %}
 <div style="background:#28a745;color:white;padding:10px;border-radius:6px;margin-bottom:15px;">
-Email sent successfully ✅
+    Email sent successfully ✅
 </div>
 {% endif %}
 
-<div class="table-wrapper">
-    <table>
-        <thead>
-            <tr>
-                <th>Quote #</th>
-                <th>Client</th>
-                <th>Items</th>
-                <th>Total (R)</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for quote in quotes %}
-            <tr>
-                <td>Q-{{ "%04d"|format(quote.quote_number) }}</td>
-                <td>{{ quote.client.name }}</td>
-                <td>
-                    {% for item in quote.items %}
-                    {{ item.description }} (x{{ item.quantity }})<br>
-                    {% endfor %}
-                </td>
-
-                <td>R {{ "%.2f"|format(quote.total) }}</td>
-                <td>{{ quote.status }}</td>
-                <td>{{ quote.created_at.strftime("%Y-%m-%d") }}</td>
-                <td>
-    <div class="actions">
-        <a class="btn preview" href="/quotes/{{ quote.id }}/preview">Preview</a>
-        <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf">PDF</a>
-        <a class="btn email" href="/quotes/{{ quote.id }}/email">Email</a>
-
-        {% if quote.status == "Draft" %}
-            <a class="btn sent" href="/quotes/{{ quote.id }}/sent">Mark Sent</a>
-            <a class="btn edit" href="/quotes/{{ quote.id }}/edit">Edit</a>
-        {% endif %}
+<!-- Group quotes by client_id (comparable), then get client object from first quote -->
+{% for client_id, client_quotes in quotes|groupby('client_id')|sort(attribute='0') %}
+{% set client = client_quotes[0].client %}
+<div class="client-group" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white;">
+    <!-- Client Header (Clickable) -->
+    <div class="client-header" onclick="toggleClient('client-{{ client_id }}')" 
+         style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                padding: 15px 20px; cursor: pointer; 
+                display: flex; justify-content: space-between; align-items: center;
+                border-left: 4px solid #49bef5;
+                transition: background 0.2s;">
         
-        {% if quote.status == "Sent" %}
-            <a class="btn approve" href="/quotes/{{ quote.id }}/approved">Approve</a>
-            <a class="btn edit" href="/quotes/{{ quote.id }}/edit">Edit</a>
-        {% endif %}
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span class="toggle-icon" id="icon-client-{{ client_id }}" style="font-size: 18px; color: #49bef5; font-weight: bold;">▼</span>
+            <div>
+                <div style="font-weight: bold; font-size: 16px; color: #333;">{{ client.name }}</div>
+                <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                    {{ client.client_code }} • {{ client.email or 'No email' }}
+                </div>
+            </div>
+        </div>
         
-        {% if quote.status == "Approved" and not quote.converted %}
-            <a class="btn convert" href="/quotes/{{ quote.id }}/convert">Convert to Invoice</a>
-        {% endif %}
-        
-        {% if quote.converted %}
-            <span style="color:#666;font-size:12px;">Converted to Invoice</span>
-        {% endif %}
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #49bef5;">{{ client_quotes|length }}</div>
+                <div style="font-size: 11px; color: #666;">Quotes</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #28a745;">
+                    R {{ "%.2f"|format(client_quotes|map(attribute='total')|sum) }}
+                </div>
+                <div style="font-size: 11px; color: #666;">Total Value</div>
+            </div>
+        </div>
     </div>
-</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    
+    <!-- Quotes Table (Expandable) -->
+    <div id="client-{{ client_id }}" class="client-quotes" style="display: block;">
+        <table style="width:100%; border-collapse: collapse; margin: 0;">
+            <thead>
+                <tr style="background:#f1f1f1;">
+                    <th style="padding:12px; text-align:left; font-size:13px; border-bottom:2px solid #ddd;">Quote #</th>
+                    <th style="padding:12px; text-align:left; font-size:13px; border-bottom:2px solid #ddd;">Items</th>
+                    <th style="padding:12px; text-align:right; font-size:13px; border-bottom:2px solid #ddd;">Total</th>
+                    <th style="padding:12px; text-align:center; font-size:13px; border-bottom:2px solid #ddd;">Status</th>
+                    <th style="padding:12px; text-align:center; font-size:13px; border-bottom:2px solid #ddd;">Date</th>
+                    <th style="padding:12px; text-align:center; font-size:13px; border-bottom:2px solid #ddd;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quote in client_quotes|sort(attribute='created_at', reverse=true) %}
+                <tr style="border-bottom:1px solid #eee; {% if loop.last %}border-bottom:none;{% endif %}">
+                    <td style="padding:12px; font-weight:bold;">Q-{{ "%04d"|format(quote.quote_number) }}</td>
+                    <td style="padding:12px; font-size:12px; color:#666; max-width:300px;">
+                        {% for item in quote.items %}
+                            {{ item.description }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="padding:12px; text-align:right; font-weight:bold;">R {{ "%.2f"|format(quote.total) }}</td>
+                    <td style="padding:12px; text-align:center;">
+                        {% if quote.status == "Draft" %}
+                            <span style="background:#6c757d; color:white; padding:4px 10px; border-radius:4px; font-size:11px;">Draft</span>
+                        {% elif quote.status == "Sent" %}
+                            <span style="background:#17a2b8; color:white; padding:4px 10px; border-radius:4px; font-size:11px;">Sent</span>
+                        {% elif quote.status == "Approved" %}
+                            <span style="background:#28a745; color:white; padding:4px 10px; border-radius:4px; font-size:11px;">Approved</span>
+                        {% else %}
+                            <span style="background:#dc3545; color:white; padding:4px 10px; border-radius:4px; font-size:11px;">{{ quote.status }}</span>
+                        {% endif %}
+                        
+                        {% if quote.converted %}
+                            <div style="font-size:10px; color:#28a745; margin-top:4px;">✓ Converted</div>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px; text-align:center; font-size:12px; color:#666;">
+                        {{ quote.created_at.strftime("%d %b %Y") }}
+                    </td>
+                    <td style="padding:12px; text-align:center;">
+                        <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                            <a class="btn preview" href="/quotes/{{ quote.id }}/preview" style="padding:4px 8px; font-size:11px;">View</a>
+                            <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf" style="padding:4px 8px; font-size:11px;">PDF</a>
+                            <a class="btn email" href="/quotes/{{ quote.id }}/email" style="padding:4px 8px; font-size:11px;">Email</a>
+
+                            {% if quote.status == "Draft" %}
+                                <a class="btn sent" href="/quotes/{{ quote.id }}/sent" style="padding:4px 8px; font-size:11px;">Mark Sent</a>
+                                <a class="btn edit" href="/quotes/{{ quote.id }}/edit" style="padding:4px 8px; font-size:11px;">Edit</a>
+                            {% endif %}
+                            
+                            {% if quote.status == "Sent" %}
+                                <a class="btn approve" href="/quotes/{{ quote.id }}/approved" style="padding:4px 8px; font-size:11px;">Approve</a>
+                                <a class="btn edit" href="/quotes/{{ quote.id }}/edit" style="padding:4px 8px; font-size:11px;">Edit</a>
+                            {% endif %}
+                            
+                            {% if quote.status == "Approved" and not quote.converted %}
+                                <a class="btn convert" href="/quotes/{{ quote.id }}/convert" style="padding:4px 8px; font-size:11px;">Convert</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+{% else %}
+<div style="text-align:center; padding:40px; color:#666; background:white; border-radius:8px;">
+    <div style="font-size:48px; margin-bottom:10px;">📄</div>
+    <div style="font-size:18px; font-weight:bold; margin-bottom:5px;">No quotes found</div>
+    <div>Create your first quote to get started</div>
+</div>
+{% endfor %}
+
+<script>
+function toggleClient(clientId) {
+    const content = document.getElementById(clientId);
+    const icon = document.getElementById('icon-' + clientId);
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
+
+function expandAll() {
+    document.querySelectorAll('.client-quotes').forEach(el => {
+        el.style.display = 'block';
+    });
+    document.querySelectorAll('.toggle-icon').forEach(el => {
+        el.textContent = '▼';
+    });
+}
+
+function collapseAll() {
+    document.querySelectorAll('.client-quotes').forEach(el => {
+        el.style.display = 'none';
+    });
+    document.querySelectorAll('.toggle-icon').forEach(el => {
+        el.textContent = '▶';
+    });
+}
+
+// Hover effect for headers
+document.querySelectorAll('.client-header').forEach(header => {
+    header.addEventListener('mouseenter', function() {
+        this.style.background = 'linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)';
+    });
+    header.addEventListener('mouseleave', function() {
+        this.style.background = 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)';
+    });
+});
+</script>
 {% endblock %}
