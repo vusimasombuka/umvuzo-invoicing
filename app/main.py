@@ -1761,3 +1761,108 @@ def preview_invoice(request: Request, invoice_id: int, current_user: User = Depe
         "current_user": current_user,
         "due_date": due_date
     })
+
+
+    # =========================
+# EDIT QUOTE
+# =========================
+
+@app.get("/quotes/{quote_id}/edit", response_class=HTMLResponse)
+def edit_quote_page(quote_id: int, request: Request, current_user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    if current_user.role != UserRole.ADMIN and quote.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if quote.converted:
+        request.session["flash"] = "Cannot edit - quote already converted to invoice."
+        return RedirectResponse("/quotes-page", status_code=303)
+    
+    client = db.get(Client, quote.client_id)
+    items = db.query(QuoteItem).filter(QuoteItem.quote_id == quote.id).all()
+    services = db.query(Service).filter(Service.is_active == True).order_by(Service.name).all()
+    clients = db.query(Client).all()
+    
+    return templates.TemplateResponse("edit_quote.html", {
+        "request": request,
+        "quote": quote,
+        "client": client,
+        "items": items,
+        "services": services,
+        "clients": clients,
+        "csrf_token": request.session.get("csrf_token"),
+        "current_user": current_user
+    })
+
+@app.post("/quotes/{quote_id}/edit")
+def update_quote(
+    quote_id: int,
+    request: Request,
+    client_id: int = Form(...),
+    items_data: str = Form(...),
+    csrf_token: str = Form(...),
+    current_user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    if csrf_token != request.session.get("csrf_token"):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+    
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    if current_user.role != UserRole.ADMIN and quote.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if quote.converted:
+        request.session["flash"] = "Cannot edit converted quote."
+        return RedirectResponse("/quotes-page", status_code=303)
+    
+    # Verify client access
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client or (current_user.role != UserRole.ADMIN and client.created_by_id != current_user.id):
+        raise HTTPException(status_code=403, detail="Invalid client")
+    
+    try:
+        items = json.loads(items_data)
+        if not items:
+            request.session["flash"] = "Add at least one item."
+            return RedirectResponse(f"/quotes/{quote_id}/edit", status_code=303)
+    except:
+        request.session["flash"] = "Invalid data."
+        return RedirectResponse(f"/quotes/{quote_id}/edit", status_code=303)
+    
+    try:
+        # Update client if changed
+        quote.client_id = client_id
+        
+        # Delete old items
+        db.query(QuoteItem).filter(QuoteItem.quote_id == quote.id).delete()
+        
+        # Add new items
+        total = 0
+        for item in items:
+            line = float(item["unit_cost"]) * float(item["quantity"])
+            total += line
+            db.add(QuoteItem(
+                quote_id=quote.id,
+                description=item["description"],
+                unit_cost=float(item["unit_cost"]),
+                quantity=float(item["quantity"])
+            ))
+        
+        quote.total = total
+        db.commit()
+        
+        log_audit_action(db, current_user.id, "quote_updated", "quote", quote.id, 
+                        f"Updated Q-{quote.quote_number:04d}", request.client.host)
+        
+        request.session["flash"] = f"Quote Q-{quote.quote_number:04d} updated successfully!"
+        return RedirectResponse("/quotes-page", status_code=303)
+        
+    except Exception as e:
+        db.rollback()
+        request.session["flash"] = "Error updating quote."
+        return RedirectResponse(f"/quotes/{quote_id}/edit", status_code=303)

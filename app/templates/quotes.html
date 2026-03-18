@@ -37,25 +37,30 @@ Email sent successfully ✅
                 <td>{{ quote.status }}</td>
                 <td>{{ quote.created_at.strftime("%Y-%m-%d") }}</td>
                 <td>
-                    <div class="actions">
-                        <a class="btn preview" href="/quotes/{{ quote.id }}/preview">Preview</a>
-                        <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf">PDF</a>
-                        <a class="btn email" href="/quotes/{{ quote.id }}/email">Email</a>
+    <div class="actions">
+        <a class="btn preview" href="/quotes/{{ quote.id }}/preview">Preview</a>
+        <a class="btn pdf" href="/quotes/{{ quote.id }}/pdf">PDF</a>
+        <a class="btn email" href="/quotes/{{ quote.id }}/email">Email</a>
 
-                        {% if quote.status == "Draft" %}
-                            <a class="btn sent" href="/quotes/{{ quote.id }}/sent">Mark Sent</a>
-                        {% endif %}
-                        {% if quote.status == "Sent" %}
-                            <a class="btn approve" href="/quotes/{{ quote.id }}/approved">Approve</a>
-                        {% endif %}
-                        {% if quote.status == "Approved" and not quote.converted %}
-                            <a class="btn convert" href="/quotes/{{ quote.id }}/convert">Convert</a>
-                        {% endif %}
-                        {% if quote.converted %}
-                            <span style="color:#666;font-size:12px;">Converted</span>
-                        {% endif %}
-                    </div>
-                </td>
+        {% if quote.status == "Draft" %}
+            <a class="btn sent" href="/quotes/{{ quote.id }}/sent">Mark Sent</a>
+            <a class="btn edit" href="/quotes/{{ quote.id }}/edit">Edit</a>
+        {% endif %}
+        
+        {% if quote.status == "Sent" %}
+            <a class="btn approve" href="/quotes/{{ quote.id }}/approved">Approve</a>
+            <a class="btn edit" href="/quotes/{{ quote.id }}/edit">Edit</a>
+        {% endif %}
+        
+        {% if quote.status == "Approved" and not quote.converted %}
+            <a class="btn convert" href="/quotes/{{ quote.id }}/convert">Convert to Invoice</a>
+        {% endif %}
+        
+        {% if quote.converted %}
+            <span style="color:#666;font-size:12px;">Converted to Invoice</span>
+        {% endif %}
+    </div>
+</td>
             </tr>
         {% endfor %}
         </tbody>

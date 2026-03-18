@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Edit Quote | Umvuzo Media{% endblock %}
+
+{% block content %}
+<h2>Edit Quote #Q-{{ "%04d"|format(quote.quote_number) }}</h2>
+
+<div style="background:#fff3cd; padding:15px; border-radius:6px; margin-bottom:20px; border-left:4px solid #ffc107;">
+    <strong>Note:</strong> Editing this quote will update the total and items. The quote number and date will remain the same.
+</div>
+
+<form method="post" action="/quotes/{{ quote.id }}/edit" id="quote-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    
+    <label>Client *</label><br>
+    <select name="client_id" required style="width:100%; padding:8px; margin:5px 0; border:1px solid #ddd; border-radius:4px;">
+        <option value="">Select Client...</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}" {% if c.id == quote.client_id %}selected{% endif %}>
+            {{ c.name }} ({{ c.client_code }})
+        </option>
+        {% endfor %}
+    </select>
+    <br><br>
+    
+    <h3>Items</h3>
+    <div class="table-wrapper">
+        <table id="items-table" style="width:100%; border-collapse: collapse;">
+            <tr style="background:#49bef5; color:rgb(58, 57, 57);">
+                <th style="border:1px solid #ddd; padding:8px;">Type</th>
+                <th style="border:1px solid #ddd; padding:8px;">Description</th>
+                <th style="border:1px solid #ddd; padding:8px;">Unit Cost</th>
+                <th style="border:1px solid #ddd; padding:8px;">Quantity</th>
+                <th style="border:1px solid #ddd; padding:8px;">Amount</th>
+                <th style="border:1px solid #ddd; padding:8px;"></th>
+            </tr>
+            {% for item in items %}
+            <tr class="item-row">
+                <td style="border:1px solid #ddd; padding:5px;">
+    <select class="service-select" style="width:100%; padding:5px; border:1px solid #ddd;" onchange="fillService(this)">
+        <option value="">Custom Item</option>
+        {% for service in services %}
+        <option value="{{ service.price }}" data-desc="{{ service.description }}" {% if service.description == item.description %}selected{% endif %}>
+            {{ service.name }}
+        </option>
+        {% endfor %}
+    </select>
+</td>
+                <td style="border:1px solid #ddd; padding:5px;">
+                    <input type="text" class="description-input" value="{{ item.description }}" required style="width:100%; padding:5px; border:1px solid #ddd;">
+                </td>
+                <td style="border:1px solid #ddd; padding:5px;">
+                    <input type="number" step="0.01" class="unit-cost" value="{{ item.unit_cost }}" required style="width:100%; padding:5px; border:1px solid #ddd;">
+                </td>
+                <td style="border:1px solid #ddd; padding:5px;">
+                    <input type="number" class="quantity" value="{{ item.quantity }}" min="1" required style="width:100%; padding:5px; border:1px solid #ddd;">
+                </td>
+                <td style="border:1px solid #ddd; padding:5px; text-align:right; font-weight:bold;" class="amount">
+                    R {{ "%.2f"|format(item.unit_cost * item.quantity) }}
+                </td>
+                <td style="border:1px solid #ddd; padding:5px; text-align:center;">
+                    <button type="button" onclick="removeRow(this)" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">X</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <br>
+    
+    <div style="display:flex; gap:10px;">
+        <button type="button" onclick="addRow()" style="background:#1e3a8a; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add from Services</button>
+        <button type="button" onclick="addCustomRow()" style="background:#6c757d; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">+ Add Custom Item</button>
+    </div>
+    
+    <br><br>
+    <h3>Total: R <span id="grand-total" style="color:#047857;">{{ "%.2f"|format(quote.total) }}</span></h3>
+    <input type="hidden" name="items_data" id="items_data">
+    <br>
+    
+    <div style="display:flex; gap:15px; align-items:center;">
+        <button type="submit" onclick="return validateAndSubmit()" style="background:#047857; color:white; padding:10px 30px; border:none; border-radius:6px; cursor:pointer; font-size:16px;">Save Changes</button>
+        <a href="/quotes-page" style="color:#666; text-decoration:none;">Cancel</a>
+    </div>
+</form>
+
+<script>
+// Services data for dropdown
+const services = [
+    {% for service in services %}
+    {name: "{{ service.name }}", price: {{ service.price }}, description: "{{ service.description }}"}{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function addRow() {
+    const table = document.getElementById("items-table");
+    const row = table.insertRow();
+    row.className = "item-row";
+    
+    let serviceOptions = '<option value="">Select Service</option>';
+    services.forEach(s => {
+        serviceOptions += `<option value="${s.price}" data-desc="${s.description}">${s.name} (R ${s.price.toFixed(2)})</option>`;
+    });
+    
+    row.innerHTML = `
+        <td style="border:1px solid #ddd; padding:5px;">
+            <select class="service-select" style="width:100%; padding:5px; border:1px solid #ddd;" onchange="fillService(this)">
+                ${serviceOptions}
+            </select>
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="text" class="description-input" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="number" step="0.01" class="unit-cost" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="number" class="quantity" value="1" min="1" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px; text-align:right; font-weight:bold;" class="amount">R 0.00</td>
+        <td style="border:1px solid #ddd; padding:5px; text-align:center;">
+            <button type="button" onclick="removeRow(this)" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">X</button>
+        </td>
+    `;
+    attachEvents(row);
+}
+
+function addCustomRow() {
+    const table = document.getElementById("items-table");
+    const row = table.insertRow();
+    row.className = "item-row";
+    
+    row.innerHTML = `
+        <td style="border:1px solid #ddd; padding:5px;">
+            <span style="color:#666; font-style:italic;">Custom</span>
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="text" class="description-input" placeholder="Enter description" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="number" step="0.01" class="unit-cost" placeholder="0.00" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px;">
+            <input type="number" class="quantity" value="1" min="1" required style="width:100%; padding:5px; border:1px solid #ddd;">
+        </td>
+        <td style="border:1px solid #ddd; padding:5px; text-align:right; font-weight:bold;" class="amount">R 0.00</td>
+        <td style="border:1px solid #ddd; padding:5px; text-align:center;">
+            <button type="button" onclick="removeRow(this)" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">X</button>
+        </td>
+    `;
+    attachEvents(row);
+    row.querySelector('.description-input').focus();
+}
+
+function fillService(select) {
+    let selected = select.options[select.selectedIndex];
+    let row = select.closest("tr");
+    if (selected.value) {
+        row.querySelector(".unit-cost").value = selected.value;
+        row.querySelector(".description-input").value = selected.getAttribute("data-desc");
+        calculateRow(row);
+    }
+}
+
+function calculateRow(row) {
+    let unit = parseFloat(row.querySelector(".unit-cost").value) || 0;
+    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
+    let amount = unit * qty;
+    row.querySelector(".amount").innerText = "R " + amount.toFixed(2);
+    calculateTotal();
+}
+
+function calculateTotal() {
+    let total = 0;
+    document.querySelectorAll(".item-row").forEach(row => {
+        let unit = parseFloat(row.querySelector(".unit-cost").value) || 0;
+        let qty = parseFloat(row.querySelector(".quantity").value) || 0;
+        total += unit * qty;
+    });
+    document.getElementById("grand-total").innerText = total.toFixed(2);
+}
+
+function attachEvents(row) {
+    let inputs = row.querySelectorAll(".unit-cost, .quantity");
+    inputs.forEach(input => {
+        input.addEventListener("input", () => calculateRow(row));
+    });
+}
+
+function removeRow(button) {
+    button.closest("tr").remove();
+    calculateTotal();
+}
+
+function validateAndSubmit() {
+    let rows = document.querySelectorAll(".item-row");
+    if (rows.length === 0) {
+        alert("Please add at least one item");
+        return false;
+    }
+    
+    let items = [];
+    let valid = true;
+    
+    rows.forEach(row => {
+        let desc = row.querySelector(".description-input").value.trim();
+        let unit = parseFloat(row.querySelector(".unit-cost").value);
+        let qty = parseFloat(row.querySelector(".quantity").value);
+        
+        if (!desc || isNaN(unit) || isNaN(qty) || unit < 0 || qty < 1) {
+            valid = false;
+            row.style.backgroundColor = "#fee2e2";
+        } else {
+            row.style.backgroundColor = "";
+            items.push({
+                description: desc,
+                unit_cost: unit,
+                quantity: qty
+            });
+        }
+    });
+    
+    if (!valid) {
+        alert("Please fill in all fields correctly");
+        return false;
+    }
+    
+    document.getElementById("items_data").value = JSON.stringify(items);
+    return true;
+}
+
+// Attach events to existing rows on page load
+document.querySelectorAll(".item-row").forEach(row => {
+    attachEvents(row);
+    calculateRow(row);
+});
+</script>
+{% endblock %}
